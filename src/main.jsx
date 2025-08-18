@@ -6,7 +6,6 @@ import { ErrorFallback } from './ErrorFallback.jsx'
 
 import "./main.css"
 import "./styles/theme.css"
-import "./index.css"
 
 createRoot(document.getElementById('root')).render(
   <ErrorBoundary FallbackComponent={ErrorFallback}>
