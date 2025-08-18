@@ -64,7 +64,6 @@ export function ActivityTable({ activities, onClick, units = 'metric' }) {
             <TableHead>Pace</TableHead>
             <TableHead>Elevation</TableHead>
             <TableHead className="min-w-[250px]">Private Notes</TableHead>
-            <TableHead>Achievements</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -97,7 +96,7 @@ export function ActivityTable({ activities, onClick, units = 'metric' }) {
               <TableCell className="text-sm font-medium">
                 {formatDuration(activity.moving_time)}
               </TableCell>
-              <TableCell className="text-sm font-medium text-accent">
+              <TableCell className="text-sm font-medium">
                 {formatPace(activity.distance, activity.moving_time, units)}
               </TableCell>
               <TableCell className="text-sm font-medium text-success">
@@ -113,20 +112,6 @@ export function ActivityTable({ activities, onClick, units = 'metric' }) {
                     {truncateText(activity.private_note, 60)}
                   </p>
                 </div>
-              </TableCell>
-              <TableCell>
-                {activity.achievement_count > 0 && (
-                  <div className="flex gap-1">
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200 text-xs">
-                      🏆 {activity.achievement_count}
-                    </Badge>
-                    {activity.kudos_count > 0 && (
-                      <Badge variant="secondary" className="bg-red-100 text-red-800 border-red-200 text-xs">
-                        ❤️ {activity.kudos_count}
-                      </Badge>
-                    )}
-                  </div>
-                )}
               </TableCell>
             </TableRow>
           ))}
