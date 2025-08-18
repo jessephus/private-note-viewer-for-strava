@@ -1,12 +1,29 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, TrendingUp, Users, Zap } from 'lucide-react';
+import { Activity, TrendingUp, Users, Zap, Loader2 } from 'lucide-react';
 import { StravaAPI } from '@/lib/strava-api';
+import { toast } from 'sonner';
 
 export function AuthLanding({ onAuthSuccess }) {
-  const handleStravaAuth = () => {
-    const stravaAPI = new StravaAPI();
-    window.location.href = stravaAPI.getAuthUrl();
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+
+  const handleStravaAuth = async () => {
+    setIsCheckingConnection(true);
+    
+    try {
+      const stravaAPI = new StravaAPI();
+      
+      // Test backend connection first
+      await stravaAPI.testBackendConnection();
+      
+      // If connection is successful, redirect to Strava
+      window.location.href = stravaAPI.getAuthUrl();
+    } catch (error) {
+      console.error('Failed to connect to backend before OAuth:', error);
+      toast.error('Connection Error: ' + error.message);
+      setIsCheckingConnection(false);
+    }
   };
 
   const handleDemoMode = () => {
@@ -72,9 +89,19 @@ export function AuthLanding({ onAuthSuccess }) {
             onClick={handleStravaAuth}
             className="bg-[#FC4C02] hover:bg-[#E8440A] text-white px-8 py-3 text-lg font-semibold"
             size="lg"
+            disabled={isCheckingConnection}
           >
-            <Activity className="mr-2 h-5 w-5" />
-            Connect with Strava
+            {isCheckingConnection ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                <Activity className="mr-2 h-5 w-5" />
+                Connect with Strava
+              </>
+            )}
           </Button>
           
           <Button 
@@ -82,6 +109,7 @@ export function AuthLanding({ onAuthSuccess }) {
             onClick={handleDemoMode}
             size="lg"
             className="px-8 py-3 text-lg"
+            disabled={isCheckingConnection}
           >
             Try Demo Mode
           </Button>
