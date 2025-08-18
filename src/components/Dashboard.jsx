@@ -15,6 +15,8 @@ export function Dashboard({ onLogout, accessToken }) {
   const [activities, setActivities] = useLocalStorage('strava-activities', []);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
+  const [selectedActivityDetails, setSelectedActivityDetails] = useState(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isRealData, setIsRealData] = useLocalStorage('strava-real-data', false);
   const [units, setUnits] = useLocalStorage('strava-units', 'metric');
 
@@ -25,6 +27,21 @@ export function Dashboard({ onLogout, accessToken }) {
       'Morning Run', 'Evening Ride', 'Lunch Break Run', 'Weekend Long Ride',
       'Hill Intervals', 'Recovery Swim', 'Trail Run', 'Commute Ride',
       'Speed Work', 'Base Building Run', 'Mountain Hike', 'Track Session'
+    ];
+    
+    const privateNotes = [
+      'Felt really strong today! Weather was perfect and I maintained a good pace throughout.',
+      'Struggled a bit with the hills but pushed through. Need to work on climbing strength.',
+      'Great recovery session. Took it easy and focused on form.',
+      null, // Some activities won't have notes
+      'Amazing trail conditions. Saw some wildlife and took photos at the summit!',
+      null,
+      'New route today - loved the variety. Will definitely do this again.',
+      'Commute was smooth but traffic was heavy. Good to get some exercise in.',
+      null,
+      'Base building week - keeping effort sustainable. Good consistency.',
+      'Challenging hike but the views were worth it! Met some friendly hikers.',
+      null
     ];
 
     return Array.from({ length: 12 }, (_, i) => ({
@@ -49,6 +66,7 @@ export function Dashboard({ onLogout, accessToken }) {
       photo_count: Math.floor(Math.random() * 2),
       trainer: Math.random() > 0.8,
       commute: Math.random() > 0.7,
+      private_note: privateNotes[i % privateNotes.length], // Add private notes to demo data
     }));
   };
 
@@ -123,6 +141,43 @@ export function Dashboard({ onLogout, accessToken }) {
     }
   };
 
+  const fetchActivityDetails = async (activity) => {
+    // If we're in demo mode or don't have access token, use the summary data
+    if (!accessToken || !isRealData) {
+      setSelectedActivity(activity);
+      setSelectedActivityDetails(activity);
+      return;
+    }
+
+    setSelectedActivity(activity);
+    setIsLoadingDetails(true);
+    
+    try {
+      const stravaAPI = new StravaAPI(accessToken);
+      const detailedActivity = await stravaAPI.getActivity(activity.id);
+      
+      console.log('fetchActivityDetails: Successfully loaded detailed activity data', {
+        activityId: activity.id,
+        hasPrivateNote: !!detailedActivity.private_note,
+        privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
+      });
+      
+      setSelectedActivityDetails(detailedActivity);
+    } catch (error) {
+      console.error('fetchActivityDetails: Failed to load detailed activity', {
+        activityId: activity.id,
+        error: error.message,
+        errorType: error.constructor.name
+      });
+      
+      // Fall back to summary data if detailed fetch fails
+      setSelectedActivityDetails(activity);
+      toast.error('Could not load activity details, showing summary data');
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
   useEffect(() => {
     if (accessToken) {
       // Always load real data when we have a token
@@ -180,7 +235,10 @@ export function Dashboard({ onLogout, accessToken }) {
           <div className="flex items-center justify-between mb-6">
             <Button
               variant="outline"
-              onClick={() => setSelectedActivity(null)}
+              onClick={() => {
+                setSelectedActivity(null);
+                setSelectedActivityDetails(null);
+              }}
               className="mb-4"
             >
               ← Back to Dashboard
@@ -211,19 +269,51 @@ export function Dashboard({ onLogout, accessToken }) {
               </div>
             </CardHeader>
             <CardContent>
+              {isLoadingDetails ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-24 w-full" />
+                    ))}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="text-center p-4 bg-card rounded-lg border">
                   <div className="text-3xl font-bold text-primary">
                     {formatDistance(selectedActivity.distance, units)}
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">Distance</div>
-                </div>
-                <div className="text-center p-4 bg-card rounded-lg border">
-                  <div className="text-3xl font-bold text-accent">
-                    {formatDuration(selectedActivity.moving_time)}
+                  <div className="grid grid-cols-2 gap-4">
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <Skeleton key={i} className="h-20 w-full" />
+                    ))}
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">Moving Time</div>
                 </div>
+              ) : selectedActivityDetails ? (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <div className="text-center p-4 bg-card rounded-lg border">
+                      <div className="text-3xl font-bold text-primary">
+                        {formatDistance(selectedActivityDetails.distance, units)}
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-1">Distance</div>
+                    </div>
+                    <div className="text-center p-4 bg-card rounded-lg border">
+                      <div className="text-3xl font-bold text-accent">
+                        {formatDuration(selectedActivityDetails.moving_time)}
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-1">Moving Time</div>
+                    </div>
+                    <div className="text-center p-4 bg-card rounded-lg border">
+                      <div className="text-3xl font-bold text-success">
+                        {formatSpeed(selectedActivityDetails.average_speed || 0, units)}
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-1">Avg Speed</div>
+                    </div>
+                    <div className="text-center p-4 bg-card rounded-lg border">
+                      <div className="text-3xl font-bold">
+                        {formatElevation(selectedActivityDetails.total_elevation_gain, units)}
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-1">Elevation</div>
+                    </div>
+                  </div>
                 <div className="text-center p-4 bg-card rounded-lg border">
                   <div className="text-3xl font-bold text-success">
                     {formatSpeed(selectedActivity.average_speed || 0, units)}
@@ -238,20 +328,42 @@ export function Dashboard({ onLogout, accessToken }) {
                 </div>
               </div>
 
-              {selectedActivity.average_heartrate && (
-                <div className="mt-6 grid grid-cols-2 gap-4">
-                  <div className="text-center p-4 bg-card rounded-lg border">
-                    <div className="text-2xl font-bold text-red-500">
-                      {Math.round(selectedActivity.average_heartrate)} bpm
+                  {selectedActivityDetails.average_heartrate && (
+                    <div className="mt-6 grid grid-cols-2 gap-4">
+                      <div className="text-center p-4 bg-card rounded-lg border">
+                        <div className="text-2xl font-bold text-red-500">
+                          {Math.round(selectedActivityDetails.average_heartrate)} bpm
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">Avg Heart Rate</div>
+                      </div>
+                      <div className="text-center p-4 bg-card rounded-lg border">
+                        <div className="text-2xl font-bold text-red-600">
+                          {Math.round(selectedActivityDetails.max_heartrate)} bpm
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">Max Heart Rate</div>
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground mt-1">Avg Heart Rate</div>
+                  )}
+
+                  <div className="mt-6">
+                    <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <span className="text-blue-600 dark:text-blue-400">📝</span>
+                          Private Notes
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm whitespace-pre-wrap text-blue-900 dark:text-blue-100">
+                          {selectedActivityDetails.private_note || 'N/A'}
+                        </p>
+                      </CardContent>
+                    </Card>
                   </div>
-                  <div className="text-center p-4 bg-card rounded-lg border">
-                    <div className="text-2xl font-bold text-red-600">
-                      {Math.round(selectedActivity.max_heartrate)} bpm
-                    </div>
-                    <div className="text-sm text-muted-foreground mt-1">Max Heart Rate</div>
-                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">Loading activity details...</p>
                 </div>
               )}
             </CardContent>
