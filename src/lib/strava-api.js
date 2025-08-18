@@ -1,4 +1,4 @@
-const STRAVA_CLIENT_ID = '138637'; // Demo client ID - in production this would be configurable
+const STRAVA_CLIENT_ID = '173282'; // Demo client ID - in production this would be configurable
 const STRAVA_REDIRECT_URI = window.location.origin;
 const STRAVA_SCOPE = 'read,activity:read';
 
