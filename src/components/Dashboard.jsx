@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useActivityCache } from '@/hooks/use-activity-cache';
 import { ActivityCard } from './ActivityCard';
+import { ActivityTable } from './ActivityTable';
+import { ActivityFilters } from './ActivityFilters';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Activity, TrendingUp, User, LogOut, RefreshCw } from 'lucide-react';
+import { Activity, TrendingUp, User, LogOut, RefreshCw, TableProperties } from 'lucide-react';
 import { formatDistance, formatDuration, formatSpeed, formatElevation, StravaAPI } from '@/lib/strava-api';
 import { toast } from 'sonner';
 
@@ -20,9 +22,227 @@ export function Dashboard({ onLogout, accessToken }) {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isRealData, setIsRealData] = useLocalStorage('strava-real-data', false);
   const [units, setUnits] = useLocalStorage('strava-units', 'metric');
+  const [viewMode, setViewMode] = useLocalStorage('strava-view-mode', 'table');
+  
+  // Filter states
+  const [filters, setFilters] = useState({
+    activityType: 'all',
+    minDistance: '',
+    maxDistance: '',
+    titleKeywords: '',
+    notesKeywords: ''
+  });
+  
+  // Date range for filtering and fetching
+  const [dateRange, setDateRange] = useState({ from: null, to: null });
+  
+  // Track the date range of currently loaded activities
+  const [loadedDateRange, setLoadedDateRange] = useState({ from: null, to: null });
   
   // Initialize activity cache with 60 minute TTL
   const activityCache = useActivityCache(60);
+
+  // Filtered activities based on current filters
+  const filteredActivities = useMemo(() => {
+    let filtered = activities;
+
+    // Filter by activity type
+    if (filters.activityType && filters.activityType !== 'all') {
+      filtered = filtered.filter(activity => 
+        activity.type === filters.activityType || activity.sport_type === filters.activityType
+      );
+    }
+
+    // Filter by distance range
+    if (filters.minDistance) {
+      const minDistanceM = parseFloat(filters.minDistance) * 1000; // Convert km to meters
+      filtered = filtered.filter(activity => activity.distance >= minDistanceM);
+    }
+    
+    if (filters.maxDistance) {
+      const maxDistanceM = parseFloat(filters.maxDistance) * 1000; // Convert km to meters
+      filtered = filtered.filter(activity => activity.distance <= maxDistanceM);
+    }
+
+    // Filter by title keywords
+    if (filters.titleKeywords) {
+      const keywords = filters.titleKeywords.toLowerCase().split(' ').filter(k => k.trim());
+      filtered = filtered.filter(activity => 
+        keywords.some(keyword => 
+          activity.name.toLowerCase().includes(keyword)
+        )
+      );
+    }
+
+    // Filter by notes keywords
+    if (filters.notesKeywords) {
+      const keywords = filters.notesKeywords.toLowerCase().split(' ').filter(k => k.trim());
+      filtered = filtered.filter(activity => 
+        activity.private_note && keywords.some(keyword => 
+          activity.private_note.toLowerCase().includes(keyword)
+        )
+      );
+    }
+
+    // Filter by date range (for display)
+    if (dateRange.from) {
+      filtered = filtered.filter(activity => 
+        new Date(activity.start_date) >= dateRange.from
+      );
+    }
+    
+    if (dateRange.to) {
+      // Set to end of day for the 'to' date
+      const endOfDay = new Date(dateRange.to);
+      endOfDay.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(activity => 
+        new Date(activity.start_date) <= endOfDay
+      );
+    }
+
+    return filtered;
+  }, [activities, filters, dateRange]);
+
+  // Get available activity types for filter dropdown
+  const availableActivityTypes = useMemo(() => {
+    const types = new Set();
+    activities.forEach(activity => {
+      types.add(activity.type);
+      if (activity.sport_type && activity.sport_type !== activity.type) {
+        types.add(activity.sport_type);
+      }
+    });
+    return Array.from(types).sort();
+  }, [activities]);
+
+  // Update loaded date range when activities change
+  useEffect(() => {
+    if (activities.length > 0) {
+      const dates = activities.map(activity => new Date(activity.start_date));
+      const minDate = new Date(Math.min(...dates));
+      const maxDate = new Date(Math.max(...dates));
+      setLoadedDateRange({ from: minDate, to: maxDate });
+    }
+  }, [activities]);
+
+  // Function to check if we need to fetch additional data for the selected date range
+  const needsAdditionalData = (requestedRange) => {
+    if (!requestedRange.from || !requestedRange.to || !loadedDateRange.from || !loadedDateRange.to) {
+      return false;
+    }
+    
+    // Check if requested range extends beyond currently loaded data
+    return requestedRange.from < loadedDateRange.from || requestedRange.to > loadedDateRange.to;
+  };
+
+  // Function to fetch activities for a specific date range
+  const fetchActivitiesInDateRange = async (fromDate, toDate) => {
+    if (!accessToken || !isRealData) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const stravaAPI = new StravaAPI(accessToken);
+      
+      // Add one day buffer to ensure we get all activities in the range
+      const bufferStart = new Date(fromDate);
+      bufferStart.setDate(bufferStart.getDate() - 1);
+      
+      const bufferEnd = new Date(toDate);
+      bufferEnd.setDate(bufferEnd.getDate() + 1);
+      bufferEnd.setHours(23, 59, 59, 999);
+      
+      console.log('fetchActivitiesInDateRange: Fetching activities for date range', {
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString(),
+        bufferStart: bufferStart.toISOString(),
+        bufferEnd: bufferEnd.toISOString()
+      });
+
+      // Fetch activities within the date range (Strava API uses before/after timestamps)
+      const newActivities = await stravaAPI.getActivities(1, 200, bufferEnd.toISOString(), bufferStart.toISOString());
+      
+      console.log('fetchActivitiesInDateRange: Fetched new activities', {
+        count: newActivities.length,
+        firstDate: newActivities[0]?.start_date,
+        lastDate: newActivities[newActivities.length - 1]?.start_date
+      });
+
+      if (newActivities.length > 0) {
+        // Merge with existing activities, removing duplicates
+        const existingIds = new Set(activities.map(a => a.id));
+        const uniqueNewActivities = newActivities.filter(a => !existingIds.has(a.id));
+        
+        console.log('fetchActivitiesInDateRange: Adding unique new activities', {
+          uniqueCount: uniqueNewActivities.length,
+          totalBefore: activities.length,
+          totalAfter: activities.length + uniqueNewActivities.length
+        });
+
+        if (uniqueNewActivities.length > 0) {
+          // Preload detailed data for new activities to get private notes
+          const detailedNewActivities = await Promise.all(
+            uniqueNewActivities.map(async (activity) => {
+              try {
+                const detailedActivity = await stravaAPI.getActivity(activity.id);
+                activityCache.setCachedActivity(activity.id, detailedActivity);
+                return detailedActivity;
+              } catch (error) {
+                console.warn('fetchActivitiesInDateRange: Failed to load detailed data for activity', {
+                  activityId: activity.id,
+                  error: error.message
+                });
+                return activity;
+              }
+            })
+          );
+
+          // Update activities with new data, sorted by date (newest first)
+          const allActivities = [...activities, ...detailedNewActivities];
+          allActivities.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+          
+          setActivities(allActivities);
+          toast.success(`Loaded ${uniqueNewActivities.length} additional activities for selected date range`);
+        }
+      }
+    } catch (error) {
+      console.error('fetchActivitiesInDateRange: Failed to fetch activities for date range', {
+        error: error.message,
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString()
+      });
+      toast.error('Failed to load additional activities for date range');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle date range changes
+  const handleDateRangeChange = async (newDateRange) => {
+    setDateRange(newDateRange);
+    
+    // If we have a complete date range and we're using real data, check if we need additional data
+    if (newDateRange && newDateRange.from && newDateRange.to && accessToken && isRealData) {
+      const needsData = needsAdditionalData(newDateRange);
+      
+      console.log('handleDateRangeChange: Date range changed', {
+        newRange: {
+          from: newDateRange.from.toISOString(),
+          to: newDateRange.to.toISOString()
+        },
+        loadedRange: loadedDateRange.from && loadedDateRange.to ? {
+          from: loadedDateRange.from.toISOString(),
+          to: loadedDateRange.to.toISOString()
+        } : null,
+        needsData
+      });
+      
+      if (needsData) {
+        await fetchActivitiesInDateRange(newDateRange.from, newDateRange.to);
+      }
+    }
+  };
 
   // Generate demo data for the demo mode
   const generateDemoActivities = () => {
@@ -297,10 +517,10 @@ export function Dashboard({ onLogout, accessToken }) {
   };
 
   const getTotalStats = () => {
-    const totalDistance = activities.reduce((sum, act) => sum + act.distance, 0);
-    const totalTime = activities.reduce((sum, act) => sum + act.moving_time, 0);
-    const totalElevation = activities.reduce((sum, act) => sum + act.total_elevation_gain, 0);
-    const totalActivities = activities.length;
+    const totalDistance = filteredActivities.reduce((sum, act) => sum + act.distance, 0);
+    const totalTime = filteredActivities.reduce((sum, act) => sum + act.moving_time, 0);
+    const totalElevation = filteredActivities.reduce((sum, act) => sum + act.total_elevation_gain, 0);
+    const totalActivities = filteredActivities.length;
 
     return { totalDistance, totalTime, totalElevation, totalActivities };
   };
@@ -308,7 +528,7 @@ export function Dashboard({ onLogout, accessToken }) {
   const getActivityTypeStats = () => {
     const typeStats = {};
     
-    activities.forEach(activity => {
+    filteredActivities.forEach(activity => {
       const type = activity.type;
       if (!typeStats[type]) {
         typeStats[type] = { count: 0, distance: 0, time: 0 };
@@ -528,29 +748,87 @@ export function Dashboard({ onLogout, accessToken }) {
         </div>
 
         <Tabs defaultValue="activities" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="activities">Recent Activities</TabsTrigger>
-            <TabsTrigger value="stats">Statistics</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="activities">Recent Activities</TabsTrigger>
+              <TabsTrigger value="stats">Statistics</TabsTrigger>
+            </TabsList>
+            
+            {/* View mode toggle for activities tab only */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">View:</span>
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('table')}
+              >
+                <TableProperties className="h-4 w-4 mr-1" />
+                Table
+              </Button>
+              <Button
+                variant={viewMode === 'cards' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('cards')}
+              >
+                <Activity className="h-4 w-4 mr-1" />
+                Cards
+              </Button>
+            </div>
+          </div>
 
           <TabsContent value="activities" className="space-y-4">
+            {/* Activity Filters */}
+            <ActivityFilters
+              filters={filters}
+              onFiltersChange={setFilters}
+              dateRange={dateRange}
+              onDateRangeChange={handleDateRangeChange}
+              availableActivityTypes={availableActivityTypes}
+            />
+
             {isLoading ? (
               <div className="space-y-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <Skeleton key={i} className="h-32 w-full" />
-                ))}
+                {viewMode === 'table' ? (
+                  <div className="rounded-md border">
+                    <div className="p-4">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full mb-2" />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} className="h-32 w-full" />
+                  ))
+                )}
               </div>
             ) : (
-              <div className="grid gap-4">
-                {activities.map((activity) => (
-                  <ActivityCard
-                    key={activity.id}
-                    activity={activity}
-                    onClick={() => fetchActivityDetails(activity)}
+              <>
+                {filteredActivities.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">
+                      No activities match your current filters.
+                    </p>
+                  </div>
+                ) : viewMode === 'table' ? (
+                  <ActivityTable
+                    activities={filteredActivities}
+                    onClick={(activity) => fetchActivityDetails(activity)}
                     units={units}
                   />
-                ))}
-              </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {filteredActivities.map((activity) => (
+                      <ActivityCard
+                        key={activity.id}
+                        activity={activity}
+                        onClick={() => fetchActivityDetails(activity)}
+                        units={units}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
 
