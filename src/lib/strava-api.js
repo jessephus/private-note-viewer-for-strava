@@ -1,7 +1,7 @@
 const STRAVA_CLIENT_ID = import.meta.env.VITE_STRAVA_CLIENT_ID || '173282'; // Will be loaded from backend
 const STRAVA_REDIRECT_URI = window.location.origin;
 const STRAVA_SCOPE = 'read,activity:read';
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export class StravaAPI {
   constructor(accessToken) {
@@ -20,6 +20,48 @@ export class StravaAPI {
     return `https://www.strava.com/oauth/authorize?${params.toString()}`;
   }
 
+  /**
+   * Test connection to backend server
+   */
+  async testBackendConnection() {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend server returned ${response.status}: ${response.statusText}`);
+      }
+
+      const healthData = await response.json();
+      console.log('StravaAPI.testBackendConnection: Backend connection successful', {
+        status: healthData.status,
+        hasStravaConfig: healthData.environment?.hasStravaClientId && healthData.environment?.hasStravaClientSecret,
+        backendUrl: BACKEND_URL
+      });
+
+      return healthData;
+    } catch (error) {
+      console.error('StravaAPI.testBackendConnection: Backend connection failed', {
+        error: error.message,
+        errorType: error.constructor.name,
+        backendUrl: BACKEND_URL,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Provide user-friendly error messages
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error(`Cannot connect to backend server at ${BACKEND_URL}. Please ensure the server is running.`);
+      }
+      
+      throw error;
+    }
+  }
+
   async exchangeCodeForToken(code) {
     console.log('StravaAPI.exchangeCodeForToken: Starting token exchange request', {
       hasCode: !!code,
@@ -29,6 +71,9 @@ export class StravaAPI {
     });
     
     try {
+      // First test backend connection
+      await this.testBackendConnection();
+      
       // Call our backend to exchange the code for tokens
       const response = await fetch(`${BACKEND_URL}/api/oauth/token`, {
         method: 'POST',
@@ -80,6 +125,16 @@ export class StravaAPI {
         timestamp: new Date().toISOString(),
         stack: error.stack
       });
+
+      // Provide user-friendly error messages for common issues
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error(`Cannot connect to authentication server at ${BACKEND_URL}. Please ensure the server is running and try again.`);
+      }
+      
+      if (error.message.includes('NetworkError') || error.message.includes('ERR_CONNECTION_REFUSED')) {
+        throw new Error(`Authentication server is unavailable. Please check your network connection and try again.`);
+      }
+      
       throw error;
     }
   }

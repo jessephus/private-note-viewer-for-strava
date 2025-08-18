@@ -94,6 +94,49 @@ Click "Try Demo Mode" to explore the dashboard with sample activity data.
    ```
 3. The backend server will handle secure OAuth token exchange
 
+## Troubleshooting
+
+### Authentication Errors
+
+If you encounter authentication errors like "Failed to fetch" or "ERR_CONNECTION_REFUSED":
+
+1. **Check Backend Server Status**
+   ```bash
+   # Verify the backend server is running on port 3001
+   curl http://localhost:3001/api/health
+   ```
+
+2. **Environment Configuration**
+   - Create a `.env` file based on `.env.example`
+   - Ensure `STRAVA_CLIENT_SECRET` is set (required for OAuth)
+   - Check that `VITE_BACKEND_URL` matches your backend server URL
+
+3. **Port Conflicts**
+   - Backend runs on port 3001 by default
+   - Frontend runs on port 5173 by default  
+   - Change ports in `.env` if needed:
+     ```
+     PORT=3001                    # Backend port
+     VITE_BACKEND_URL=http://localhost:3001  # Frontend backend URL
+     ```
+
+4. **Network Issues**
+   - Ensure no firewall is blocking connections
+   - Try running both servers on the same machine
+   - Check browser console for detailed error messages
+
+5. **Strava API Configuration**
+   - Verify your Strava app is configured at https://www.strava.com/settings/api
+   - Ensure the redirect URI in your Strava app matches your frontend URL
+   - Check that your `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` are correct
+
+### Common Error Messages
+
+- **"Cannot connect to backend server"**: Backend server is not running or wrong URL
+- **"Authentication server is unavailable"**: Network connectivity issues
+- **"Failed to exchange code for token"**: Invalid Strava credentials or configuration
+- **"Your Strava session has expired"**: Token validation failed, sign in again
+
 ## Project Structure
 
 ```
