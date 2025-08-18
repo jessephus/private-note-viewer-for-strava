@@ -63,27 +63,57 @@ export function Dashboard({ onLogout, accessToken }) {
 
   const loadRealData = async () => {
     if (!accessToken) {
+      console.log('loadRealData: No access token available, falling back to demo data');
       loadDemoData();
       return;
     }
+
+    console.log('loadRealData: Starting to load real Strava data', {
+      hasToken: !!accessToken,
+      tokenPrefix: accessToken.substring(0, 8) + '...',
+      timestamp: new Date().toISOString()
+    });
 
     setIsLoading(true);
     try {
       const stravaAPI = new StravaAPI(accessToken);
       const realActivities = await stravaAPI.getActivities(1, 30);
+      
+      console.log('loadRealData: Successfully loaded real Strava data', {
+        activitiesCount: realActivities.length,
+        firstActivityDate: realActivities[0]?.start_date,
+        lastActivityDate: realActivities[realActivities.length - 1]?.start_date
+      });
+      
       setActivities(realActivities);
       setIsRealData(true);
       setIsLoading(false);
       toast.success(`Loaded ${realActivities.length} activities from Strava!`);
     } catch (error) {
-      console.error('Failed to load real activities:', error);
+      console.error('loadRealData: Failed to load real activities', {
+        error: error.message,
+        errorType: error.constructor.name,
+        hasToken: !!accessToken,
+        tokenPrefix: accessToken ? accessToken.substring(0, 8) + '...' : 'none',
+        timestamp: new Date().toISOString(),
+        isAuthError: error.message.includes('Unauthorized') || error.message.includes('401')
+      });
       
       // Check if it's an auth error
       if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+        console.warn('loadRealData: Authentication error detected, logging user out', {
+          error: error.message,
+          willLogout: true
+        });
         toast.error('Your Strava session has expired. Please sign in again.');
         onLogout(); // This will clear the invalid token
         return;
       }
+      
+      console.warn('loadRealData: Non-auth error, falling back to demo data', {
+        error: error.message,
+        fallbackAction: 'loading demo data'
+      });
       
       toast.error('Failed to load Strava data, showing demo instead');
       // Fallback to demo data if API fails

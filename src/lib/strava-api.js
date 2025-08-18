@@ -21,6 +21,13 @@ export class StravaAPI {
   }
 
   async exchangeCodeForToken(code) {
+    console.log('StravaAPI.exchangeCodeForToken: Starting token exchange request', {
+      hasCode: !!code,
+      codeLength: code ? code.length : 0,
+      backendUrl: BACKEND_URL,
+      timestamp: new Date().toISOString()
+    });
+    
     try {
       // Call our backend to exchange the code for tokens
       const response = await fetch(`${BACKEND_URL}/api/oauth/token`, {
@@ -32,19 +39,47 @@ export class StravaAPI {
         body: JSON.stringify({ code })
       });
 
+      console.log('StravaAPI.exchangeCodeForToken: Backend response received', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url
+      });
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('StravaAPI.exchangeCodeForToken: Backend returned error', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          timestamp: new Date().toISOString()
+        });
         throw new Error(errorData.error || 'Failed to exchange code for token');
       }
 
       const tokenData = await response.json();
+      
+      console.log('StravaAPI.exchangeCodeForToken: Token exchange successful', {
+        hasAccessToken: !!tokenData.access_token,
+        tokenType: tokenData.token_type,
+        scopes: tokenData.scope,
+        athleteId: tokenData.athlete?.id,
+        expiresAt: tokenData.expires_at ? new Date(tokenData.expires_at * 1000).toISOString() : 'unknown'
+      });
       
       // Store the access token for future use
       this.setAccessToken(tokenData.access_token);
       
       return tokenData;
     } catch (error) {
-      console.error('Token exchange error:', error);
+      console.error('StravaAPI.exchangeCodeForToken: Token exchange failed', {
+        error: error.message,
+        errorType: error.constructor.name,
+        hasCode: !!code,
+        backendUrl: BACKEND_URL,
+        timestamp: new Date().toISOString(),
+        stack: error.stack
+      });
       throw error;
     }
   }
@@ -55,8 +90,19 @@ export class StravaAPI {
 
   async makeAuthenticatedRequest(endpoint) {
     if (!this.accessToken) {
+      console.error('StravaAPI.makeAuthenticatedRequest: No access token available', {
+        endpoint,
+        timestamp: new Date().toISOString()
+      });
       throw new Error('No access token available');
     }
+
+    console.log('StravaAPI.makeAuthenticatedRequest: Making authenticated request', {
+      endpoint,
+      hasToken: !!this.accessToken,
+      tokenPrefix: this.accessToken.substring(0, 8) + '...',
+      url: `https://www.strava.com/api/v3${endpoint}`
+    });
 
     const response = await fetch(`https://www.strava.com/api/v3${endpoint}`, {
       headers: {
@@ -65,14 +111,51 @@ export class StravaAPI {
       }
     });
 
+    console.log('StravaAPI.makeAuthenticatedRequest: Strava API response received', {
+      endpoint,
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: {
+        'content-type': response.headers.get('content-type'),
+        'x-ratelimit-limit': response.headers.get('x-ratelimit-limit'),
+        'x-ratelimit-usage': response.headers.get('x-ratelimit-usage')
+      }
+    });
+
     if (!response.ok) {
+      const errorMessage = `Strava API error: ${response.status} ${response.statusText}`;
+      
       if (response.status === 401) {
+        console.error('StravaAPI.makeAuthenticatedRequest: Authentication failed (401)', {
+          endpoint,
+          status: response.status,
+          statusText: response.statusText,
+          tokenPrefix: this.accessToken.substring(0, 8) + '...',
+          timestamp: new Date().toISOString()
+        });
         throw new Error('Unauthorized - token may be expired');
       }
-      throw new Error(`Strava API error: ${response.status}`);
+      
+      console.error('StravaAPI.makeAuthenticatedRequest: API request failed', {
+        endpoint,
+        status: response.status,
+        statusText: response.statusText,
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      });
+      
+      throw new Error(errorMessage);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('StravaAPI.makeAuthenticatedRequest: Request successful', {
+      endpoint,
+      dataType: Array.isArray(data) ? 'array' : typeof data,
+      arrayLength: Array.isArray(data) ? data.length : undefined
+    });
+
+    return data;
   }
 
   async getAthlete() {
