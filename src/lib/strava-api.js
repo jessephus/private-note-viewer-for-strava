@@ -232,7 +232,11 @@ export class StravaAPI {
   }
 }
 
-export const formatDistance = (distance) => {
+export const formatDistance = (distance, units = 'metric') => {
+  if (units === 'imperial') {
+    const miles = (distance / 1000) * 0.621371;
+    return `${miles.toFixed(1)} mi`;
+  }
   const km = distance / 1000;
   return `${km.toFixed(1)} km`;
 };
@@ -247,18 +251,35 @@ export const formatDuration = (seconds) => {
   return `${minutes}m`;
 };
 
-export const formatPace = (distance, time) => {
+export const formatPace = (distance, time, units = 'metric') => {
   if (distance === 0) return '--';
+  
+  if (units === 'imperial') {
+    const miles = distance / 1000 * 0.621371;
+    const pace = time / miles; // seconds per mile
+    const minutes = Math.floor(pace / 60);
+    const seconds = Math.floor(pace % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}/mi`;
+  }
+  
   const pace = time / (distance / 1000); // seconds per km
   const minutes = Math.floor(pace / 60);
   const seconds = Math.floor(pace % 60);
   return `${minutes}:${seconds.toString().padStart(2, '0')}/km`;
 };
 
-export const formatSpeed = (speed) => {
+export const formatSpeed = (speed, units = 'metric') => {
+  if (units === 'imperial') {
+    const mph = (speed * 3.6) * 0.621371; // Convert m/s to km/h then to mph
+    return `${mph.toFixed(1)} mph`;
+  }
   return `${(speed * 3.6).toFixed(1)} km/h`;
 };
 
-export const formatElevation = (elevation) => {
+export const formatElevation = (elevation, units = 'metric') => {
+  if (units === 'imperial') {
+    const feet = elevation * 3.28084;
+    return `${Math.round(feet)}ft`;
+  }
   return `${Math.round(elevation)}m`;
 };
