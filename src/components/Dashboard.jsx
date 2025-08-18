@@ -326,23 +326,21 @@ export function Dashboard({ onLogout, accessToken }) {
                     </div>
                   )}
 
-                  {selectedActivityDetails.private_note && (
-                    <div className="mt-6">
-                      <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-lg flex items-center gap-2">
-                            <span className="text-blue-600 dark:text-blue-400">📝</span>
-                            Private Notes
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm whitespace-pre-wrap text-blue-900 dark:text-blue-100">
-                            {selectedActivityDetails.private_note}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
+                  <div className="mt-6">
+                    <Card className="bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <span className="text-blue-600 dark:text-blue-400">📝</span>
+                          Private Notes
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm whitespace-pre-wrap text-blue-900 dark:text-blue-100">
+                          {selectedActivityDetails.private_note || 'N/A'}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </>
               ) : (
                 <div className="text-center py-8">
