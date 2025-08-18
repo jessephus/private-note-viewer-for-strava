@@ -1,4 +1,4 @@
-const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID || '173282'; // Will be loaded from backend
+const STRAVA_CLIENT_ID = import.meta.env.VITE_STRAVA_CLIENT_ID || '173282'; // Will be loaded from backend
 const STRAVA_REDIRECT_URI = window.location.origin;
 const STRAVA_SCOPE = 'read,activity:read';
 const BACKEND_URL = 'http://localhost:3001';
