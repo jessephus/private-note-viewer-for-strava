@@ -30,9 +30,32 @@ function App() {
       // Exchange code for tokens using backend
       handleTokenExchange(code);
     } else {
-      setIsLoading(false);
+      // If we have a stored token, validate it
+      validateStoredToken();
     }
   }, []);
+
+  const validateStoredToken = async () => {
+    if (!accessToken) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Try to make a simple API call to validate the token
+      const stravaAPI = new StravaAPI(accessToken);
+      await stravaAPI.getAthlete();
+      // Token is valid, keep authentication state
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Token validation failed:', error);
+      // Token is invalid, clear authentication state
+      setIsAuthenticated(false);
+      setAccessToken(null);
+      toast.error('Your Strava session has expired. Please sign in again.');
+      setIsLoading(false);
+    }
+  };
 
   const handleTokenExchange = async (code) => {
     try {

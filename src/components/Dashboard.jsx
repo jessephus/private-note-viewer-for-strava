@@ -14,6 +14,7 @@ export function Dashboard({ onLogout, accessToken }) {
   const [activities, setActivities] = useLocalStorage('strava-activities', []);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
+  const [isRealData, setIsRealData] = useLocalStorage('strava-real-data', false);
 
   // Generate demo data for the demo mode
   const generateDemoActivities = () => {
@@ -54,6 +55,7 @@ export function Dashboard({ onLogout, accessToken }) {
     setTimeout(() => {
       const demoActivities = generateDemoActivities();
       setActivities(demoActivities);
+      setIsRealData(false);
       setIsLoading(false);
       toast.success('Demo activities loaded!');
     }, 1000);
@@ -70,10 +72,19 @@ export function Dashboard({ onLogout, accessToken }) {
       const stravaAPI = new StravaAPI(accessToken);
       const realActivities = await stravaAPI.getActivities(1, 30);
       setActivities(realActivities);
+      setIsRealData(true);
       setIsLoading(false);
       toast.success(`Loaded ${realActivities.length} activities from Strava!`);
     } catch (error) {
       console.error('Failed to load real activities:', error);
+      
+      // Check if it's an auth error
+      if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+        toast.error('Your Strava session has expired. Please sign in again.');
+        onLogout(); // This will clear the invalid token
+        return;
+      }
+      
       toast.error('Failed to load Strava data, showing demo instead');
       // Fallback to demo data if API fails
       loadDemoData();
@@ -81,12 +92,16 @@ export function Dashboard({ onLogout, accessToken }) {
   };
 
   useEffect(() => {
-    if (activities.length === 0) {
-      if (accessToken) {
-        loadRealData();
-      } else {
-        loadDemoData();
+    if (accessToken) {
+      // Always load real data when we have a token
+      // Clear any cached demo data first
+      if (!isRealData) {
+        setActivities([]);
       }
+      loadRealData();
+    } else if (activities.length === 0) {
+      // Only load demo data if we have no activities and no token
+      loadDemoData();
     }
   }, [accessToken]);
 
@@ -222,6 +237,16 @@ export function Dashboard({ onLogout, accessToken }) {
           <div className="flex items-center gap-3">
             <Activity className="h-8 w-8 text-primary" />
             <h1 className="text-3xl font-bold">Strava Dashboard</h1>
+            {!accessToken && (
+              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                Demo Mode
+              </Badge>
+            )}
+            {accessToken && isRealData && (
+              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                Live Data
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={refreshData} disabled={isLoading}>
