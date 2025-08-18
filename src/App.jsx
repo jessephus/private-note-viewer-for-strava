@@ -38,6 +38,21 @@ function App() {
   const validateStoredToken = async () => {
     if (!accessToken) {
       console.log('validateStoredToken: No access token found, skipping validation');
+      
+      // Test backend connectivity on startup for early warning
+      try {
+        const stravaAPI = new StravaAPI();
+        await stravaAPI.testBackendConnection();
+        console.log('validateStoredToken: Backend connectivity check passed');
+      } catch (error) {
+        console.warn('validateStoredToken: Backend connectivity check failed', {
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+        // Don't show error on startup, just log it for debugging
+        // Users will see the error when they try to authenticate
+      }
+      
       setIsLoading(false);
       return;
     }
