@@ -217,9 +217,23 @@ export class StravaAPI {
     return this.makeAuthenticatedRequest('/athlete');
   }
 
-  async getActivities(page = 1, perPage = 30) {
+  async getActivities(page = 1, perPage = 30, before = null, after = null) {
+    let params = `page=${page}&per_page=${perPage}`;
+    
+    if (before) {
+      // Convert date to Unix timestamp
+      const beforeTimestamp = Math.floor(new Date(before).getTime() / 1000);
+      params += `&before=${beforeTimestamp}`;
+    }
+    
+    if (after) {
+      // Convert date to Unix timestamp
+      const afterTimestamp = Math.floor(new Date(after).getTime() / 1000);
+      params += `&after=${afterTimestamp}`;
+    }
+    
     return this.makeAuthenticatedRequest(
-      `/athlete/activities?page=${page}&per_page=${perPage}`
+      `/athlete/activities?${params}`
     );
   }
 

@@ -96,7 +96,7 @@ export function ActivityFilters({
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 z-50" align="start" sideOffset={8}>
                 <Calendar
                   initialFocus
                   mode="range"
@@ -108,7 +108,8 @@ export function ActivityFilters({
                       setShowDatePicker(false);
                     }
                   }}
-                  numberOfMonths={2}
+                  numberOfMonths={1}
+                  className="max-w-sm"
                 />
               </PopoverContent>
             </Popover>

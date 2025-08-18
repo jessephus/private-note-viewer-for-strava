@@ -36,6 +36,9 @@ export function Dashboard({ onLogout, accessToken }) {
   // Date range for filtering and fetching
   const [dateRange, setDateRange] = useState({ from: null, to: null });
   
+  // Track the date range of currently loaded activities
+  const [loadedDateRange, setLoadedDateRange] = useState({ from: null, to: null });
+  
   // Initialize activity cache with 60 minute TTL
   const activityCache = useActivityCache(60);
 
@@ -111,6 +114,135 @@ export function Dashboard({ onLogout, accessToken }) {
     });
     return Array.from(types).sort();
   }, [activities]);
+
+  // Update loaded date range when activities change
+  useEffect(() => {
+    if (activities.length > 0) {
+      const dates = activities.map(activity => new Date(activity.start_date));
+      const minDate = new Date(Math.min(...dates));
+      const maxDate = new Date(Math.max(...dates));
+      setLoadedDateRange({ from: minDate, to: maxDate });
+    }
+  }, [activities]);
+
+  // Function to check if we need to fetch additional data for the selected date range
+  const needsAdditionalData = (requestedRange) => {
+    if (!requestedRange.from || !requestedRange.to || !loadedDateRange.from || !loadedDateRange.to) {
+      return false;
+    }
+    
+    // Check if requested range extends beyond currently loaded data
+    return requestedRange.from < loadedDateRange.from || requestedRange.to > loadedDateRange.to;
+  };
+
+  // Function to fetch activities for a specific date range
+  const fetchActivitiesInDateRange = async (fromDate, toDate) => {
+    if (!accessToken || !isRealData) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const stravaAPI = new StravaAPI(accessToken);
+      
+      // Add one day buffer to ensure we get all activities in the range
+      const bufferStart = new Date(fromDate);
+      bufferStart.setDate(bufferStart.getDate() - 1);
+      
+      const bufferEnd = new Date(toDate);
+      bufferEnd.setDate(bufferEnd.getDate() + 1);
+      bufferEnd.setHours(23, 59, 59, 999);
+      
+      console.log('fetchActivitiesInDateRange: Fetching activities for date range', {
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString(),
+        bufferStart: bufferStart.toISOString(),
+        bufferEnd: bufferEnd.toISOString()
+      });
+
+      // Fetch activities within the date range (Strava API uses before/after timestamps)
+      const newActivities = await stravaAPI.getActivities(1, 200, bufferEnd.toISOString(), bufferStart.toISOString());
+      
+      console.log('fetchActivitiesInDateRange: Fetched new activities', {
+        count: newActivities.length,
+        firstDate: newActivities[0]?.start_date,
+        lastDate: newActivities[newActivities.length - 1]?.start_date
+      });
+
+      if (newActivities.length > 0) {
+        // Merge with existing activities, removing duplicates
+        const existingIds = new Set(activities.map(a => a.id));
+        const uniqueNewActivities = newActivities.filter(a => !existingIds.has(a.id));
+        
+        console.log('fetchActivitiesInDateRange: Adding unique new activities', {
+          uniqueCount: uniqueNewActivities.length,
+          totalBefore: activities.length,
+          totalAfter: activities.length + uniqueNewActivities.length
+        });
+
+        if (uniqueNewActivities.length > 0) {
+          // Preload detailed data for new activities to get private notes
+          const detailedNewActivities = await Promise.all(
+            uniqueNewActivities.map(async (activity) => {
+              try {
+                const detailedActivity = await stravaAPI.getActivity(activity.id);
+                activityCache.setCachedActivity(activity.id, detailedActivity);
+                return detailedActivity;
+              } catch (error) {
+                console.warn('fetchActivitiesInDateRange: Failed to load detailed data for activity', {
+                  activityId: activity.id,
+                  error: error.message
+                });
+                return activity;
+              }
+            })
+          );
+
+          // Update activities with new data, sorted by date (newest first)
+          const allActivities = [...activities, ...detailedNewActivities];
+          allActivities.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+          
+          setActivities(allActivities);
+          toast.success(`Loaded ${uniqueNewActivities.length} additional activities for selected date range`);
+        }
+      }
+    } catch (error) {
+      console.error('fetchActivitiesInDateRange: Failed to fetch activities for date range', {
+        error: error.message,
+        fromDate: fromDate.toISOString(),
+        toDate: toDate.toISOString()
+      });
+      toast.error('Failed to load additional activities for date range');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle date range changes
+  const handleDateRangeChange = async (newDateRange) => {
+    setDateRange(newDateRange);
+    
+    // If we have a complete date range and we're using real data, check if we need additional data
+    if (newDateRange && newDateRange.from && newDateRange.to && accessToken && isRealData) {
+      const needsData = needsAdditionalData(newDateRange);
+      
+      console.log('handleDateRangeChange: Date range changed', {
+        newRange: {
+          from: newDateRange.from.toISOString(),
+          to: newDateRange.to.toISOString()
+        },
+        loadedRange: loadedDateRange.from && loadedDateRange.to ? {
+          from: loadedDateRange.from.toISOString(),
+          to: loadedDateRange.to.toISOString()
+        } : null,
+        needsData
+      });
+      
+      if (needsData) {
+        await fetchActivitiesInDateRange(newDateRange.from, newDateRange.to);
+      }
+    }
+  };
 
   // Generate demo data for the demo mode
   const generateDemoActivities = () => {
@@ -650,7 +782,7 @@ export function Dashboard({ onLogout, accessToken }) {
               filters={filters}
               onFiltersChange={setFilters}
               dateRange={dateRange}
-              onDateRangeChange={setDateRange}
+              onDateRangeChange={handleDateRangeChange}
               availableActivityTypes={availableActivityTypes}
             />
 
