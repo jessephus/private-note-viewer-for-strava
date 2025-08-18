@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, MapPin, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 
-export function ActivityCard({ activity, onClick }) {
+export function ActivityCard({ activity, onClick, units = 'metric' }) {
   const getActivityIcon = (type) => {
     switch (type.toLowerCase()) {
       case 'run':
@@ -73,7 +73,7 @@ export function ActivityCard({ activity, onClick }) {
               <span className="text-sm">Distance</span>
             </div>
             <span className="text-lg font-bold text-primary">
-              {formatDistance(activity.distance)}
+              {formatDistance(activity.distance, units)}
             </span>
           </div>
 
@@ -93,7 +93,7 @@ export function ActivityCard({ activity, onClick }) {
               <span className="text-sm">Pace</span>
             </div>
             <span className="text-lg font-bold text-accent">
-              {formatPace(activity.distance, activity.moving_time)}
+              {formatPace(activity.distance, activity.moving_time, units)}
             </span>
           </div>
 
@@ -102,7 +102,7 @@ export function ActivityCard({ activity, onClick }) {
               <span className="text-sm">⛰️ Elevation</span>
             </div>
             <span className="text-lg font-bold text-success">
-              {formatElevation(activity.total_elevation_gain)}
+              {formatElevation(activity.total_elevation_gain, units)}
             </span>
           </div>
         </div>
