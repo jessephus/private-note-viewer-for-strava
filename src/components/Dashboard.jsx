@@ -7,10 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Activity, TrendingUp, User, LogOut, RefreshCw } from 'lucide-react';
-import { formatDistance, formatDuration } from '@/lib/strava-api';
+import { formatDistance, formatDuration, StravaAPI } from '@/lib/strava-api';
 import { toast } from 'sonner';
 
-export function Dashboard({ onLogout }) {
+export function Dashboard({ onLogout, accessToken }) {
   const [activities, setActivities] = useLocalStorage('strava-activities', []);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
@@ -59,14 +59,43 @@ export function Dashboard({ onLogout }) {
     }, 1000);
   };
 
-  useEffect(() => {
-    if (activities.length === 0) {
+  const loadRealData = async () => {
+    if (!accessToken) {
+      loadDemoData();
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const stravaAPI = new StravaAPI(accessToken);
+      const realActivities = await stravaAPI.getActivities(1, 30);
+      setActivities(realActivities);
+      setIsLoading(false);
+      toast.success(`Loaded ${realActivities.length} activities from Strava!`);
+    } catch (error) {
+      console.error('Failed to load real activities:', error);
+      toast.error('Failed to load Strava data, showing demo instead');
+      // Fallback to demo data if API fails
       loadDemoData();
     }
-  }, []);
+  };
+
+  useEffect(() => {
+    if (activities.length === 0) {
+      if (accessToken) {
+        loadRealData();
+      } else {
+        loadDemoData();
+      }
+    }
+  }, [accessToken]);
 
   const refreshData = () => {
-    loadDemoData();
+    if (accessToken) {
+      loadRealData();
+    } else {
+      loadDemoData();
+    }
   };
 
   const getTotalStats = () => {
