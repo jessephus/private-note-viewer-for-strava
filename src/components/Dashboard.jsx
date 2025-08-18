@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Activity, TrendingUp, User, LogOut, RefreshCw } from 'lucide-react';
-import { formatDistance, formatDuration, StravaAPI } from '@/lib/strava-api';
+import { formatDistance, formatDuration, formatSpeed, formatElevation, StravaAPI } from '@/lib/strava-api';
 import { toast } from 'sonner';
 
 export function Dashboard({ onLogout, accessToken }) {
@@ -15,6 +16,7 @@ export function Dashboard({ onLogout, accessToken }) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [isRealData, setIsRealData] = useLocalStorage('strava-real-data', false);
+  const [units, setUnits] = useLocalStorage('strava-units', 'metric');
 
   // Generate demo data for the demo mode
   const generateDemoActivities = () => {
@@ -212,7 +214,7 @@ export function Dashboard({ onLogout, accessToken }) {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="text-center p-4 bg-card rounded-lg border">
                   <div className="text-3xl font-bold text-primary">
-                    {formatDistance(selectedActivity.distance)}
+                    {formatDistance(selectedActivity.distance, units)}
                   </div>
                   <div className="text-sm text-muted-foreground mt-1">Distance</div>
                 </div>
@@ -224,13 +226,13 @@ export function Dashboard({ onLogout, accessToken }) {
                 </div>
                 <div className="text-center p-4 bg-card rounded-lg border">
                   <div className="text-3xl font-bold text-success">
-                    {((selectedActivity.average_speed || 0) * 3.6).toFixed(1)} km/h
+                    {formatSpeed(selectedActivity.average_speed || 0, units)}
                   </div>
                   <div className="text-sm text-muted-foreground mt-1">Avg Speed</div>
                 </div>
                 <div className="text-center p-4 bg-card rounded-lg border">
                   <div className="text-3xl font-bold">
-                    {Math.round(selectedActivity.total_elevation_gain)}m
+                    {formatElevation(selectedActivity.total_elevation_gain, units)}
                   </div>
                   <div className="text-sm text-muted-foreground mt-1">Elevation</div>
                 </div>
@@ -279,6 +281,15 @@ export function Dashboard({ onLogout, accessToken }) {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <Select value={units} onValueChange={setUnits}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="metric">Metric</SelectItem>
+                <SelectItem value="imperial">Imperial</SelectItem>
+              </SelectContent>
+            </Select>
             <Button variant="outline" onClick={refreshData} disabled={isLoading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
@@ -305,7 +316,7 @@ export function Dashboard({ onLogout, accessToken }) {
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                <div className="text-2xl font-bold">{formatDistance(totalDistance)}</div>
+                <div className="text-2xl font-bold">{formatDistance(totalDistance, units)}</div>
               </div>
               <div className="text-sm text-muted-foreground">Total Distance</div>
             </CardContent>
@@ -323,7 +334,7 @@ export function Dashboard({ onLogout, accessToken }) {
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                <div className="text-2xl font-bold">{Math.round(totalElevation)}m</div>
+                <div className="text-2xl font-bold">{formatElevation(totalElevation, units)}</div>
               </div>
               <div className="text-sm text-muted-foreground">Total Elevation</div>
             </CardContent>
@@ -350,6 +361,7 @@ export function Dashboard({ onLogout, accessToken }) {
                     key={activity.id}
                     activity={activity}
                     onClick={() => setSelectedActivity(activity)}
+                    units={units}
                   />
                 ))}
               </div>
@@ -373,7 +385,7 @@ export function Dashboard({ onLogout, accessToken }) {
                           </span>
                         </div>
                         <div className="text-sm font-medium">
-                          {formatDistance(stats.distance)}
+                          {formatDistance(stats.distance, units)}
                         </div>
                       </div>
                     ))}
