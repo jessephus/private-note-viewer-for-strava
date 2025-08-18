@@ -53,19 +53,27 @@ npm run dev
 npm run build
 ```
 
-The built files will be in the `dist` directory, ready for deployment to GitHub Pages or any static hosting provider.
+The built files will be in the `dist` directory, ready for deployment to any static hosting provider.
 
-## Deployment
+## Local Development
 
-This project is configured for automatic deployment to GitHub Pages using GitHub Actions. When you push to the main branch, the app will be automatically built and deployed.
+This application is configured to run locally with a backend server for proper OAuth authentication.
 
-### Manual Deployment
+### Running the Full Application
 
-You can also deploy the built files manually to any static hosting service:
+1. Start the backend server:
+```bash
+npm run server
+```
 
-- **GitHub Pages**: Enable Pages in repository settings and point to the `dist` folder
-- **Netlify**: Drag and drop the `dist` folder
-- **Vercel**: Connect your repository for automatic deployments
+2. In a new terminal, start the frontend development server:
+```bash
+npm run dev
+```
+
+3. Open http://localhost:5173 in your browser
+
+The backend server will run on http://localhost:3001 and handle OAuth token exchange securely.
 
 ## Usage
 
@@ -77,10 +85,14 @@ Click "Try Demo Mode" to explore the dashboard with sample activity data.
 2. Authorize the application in your Strava account
 3. View your real activity data in the dashboard
 
-**Note**: This demo uses a placeholder Strava client ID. For production use, you'll need to:
+**Note**: To use real Strava data, you'll need to:
 1. Register your application with Strava
-2. Update the `STRAVA_CLIENT_ID` in `src/lib/strava-api.js`
-3. Implement proper backend token exchange
+2. Create a `.env` file with your Strava credentials:
+   ```
+   STRAVA_CLIENT_ID=your_client_id
+   STRAVA_CLIENT_SECRET=your_client_secret
+   ```
+3. The backend server will handle secure OAuth token exchange
 
 ## Project Structure
 
