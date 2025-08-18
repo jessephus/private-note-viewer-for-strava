@@ -275,15 +275,6 @@ export function Dashboard({ onLogout, accessToken }) {
                     {Array.from({ length: 4 }).map((_, i) => (
                       <Skeleton key={i} className="h-24 w-full" />
                     ))}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="text-center p-4 bg-card rounded-lg border">
-                  <div className="text-3xl font-bold text-primary">
-                    {formatDistance(selectedActivity.distance, units)}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    {Array.from({ length: 2 }).map((_, i) => (
-                      <Skeleton key={i} className="h-20 w-full" />
-                    ))}
                   </div>
                 </div>
               ) : selectedActivityDetails ? (
