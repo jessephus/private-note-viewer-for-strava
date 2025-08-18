@@ -107,6 +107,25 @@ export function ActivityCard({ activity, onClick }) {
           </div>
         </div>
 
+        {/* Private Notes Preview */}
+        <div className="mt-4 pt-3 border-t">
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3 dark:bg-blue-950/30 dark:border-blue-800/50">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-blue-600 dark:text-blue-400">📝</span>
+              <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Private Notes</span>
+            </div>
+            <p className="text-xs text-blue-900 dark:text-blue-100 line-clamp-2">
+              {activity.private_note ? 
+                (activity.private_note.length > 80 ? 
+                  `${activity.private_note.substring(0, 80)}...` : 
+                  activity.private_note
+                ) : 
+                'N/A'
+              }
+            </p>
+          </div>
+        </div>
+
         {activity.achievement_count > 0 && (
           <div className="flex items-center gap-2 mt-4 pt-3 border-t">
             <span className="text-sm text-muted-foreground">Achievements:</span>
