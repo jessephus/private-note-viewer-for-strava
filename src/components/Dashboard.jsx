@@ -109,10 +109,60 @@ export function Dashboard({ onLogout, accessToken }) {
         lastActivityDate: realActivities[realActivities.length - 1]?.start_date
       });
       
+      // Set initial activities data immediately so the UI shows something
       setActivities(realActivities);
       setIsRealData(true);
-      setIsLoading(false);
       toast.success(`Loaded ${realActivities.length} activities from Strava!`);
+      
+      // Now preload detailed data for all activities to get private notes
+      console.log('loadRealData: Starting to preload private notes for all activities');
+      
+      const detailedActivities = await Promise.all(
+        realActivities.map(async (activity) => {
+          try {
+            // Check cache first
+            const cachedActivity = activityCache.getCachedActivity(activity.id);
+            if (cachedActivity) {
+              console.log('loadRealData: Using cached detailed data for activity', {
+                activityId: activity.id,
+                hasPrivateNote: !!cachedActivity.private_note
+              });
+              return cachedActivity;
+            }
+            
+            // Fetch detailed activity data including private notes
+            const detailedActivity = await stravaAPI.getActivity(activity.id);
+            
+            // Cache the detailed data
+            activityCache.setCachedActivity(activity.id, detailedActivity);
+            
+            console.log('loadRealData: Loaded detailed data for activity', {
+              activityId: activity.id,
+              hasPrivateNote: !!detailedActivity.private_note,
+              privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
+            });
+            
+            return detailedActivity;
+          } catch (error) {
+            console.warn('loadRealData: Failed to load detailed data for activity, using summary', {
+              activityId: activity.id,
+              error: error.message
+            });
+            // Return summary data if detailed fetch fails
+            return activity;
+          }
+        })
+      );
+      
+      console.log('loadRealData: Successfully preloaded private notes', {
+        totalActivities: detailedActivities.length,
+        activitiesWithNotes: detailedActivities.filter(a => a.private_note).length
+      });
+      
+      // Update activities with detailed data including private notes
+      setActivities(detailedActivities);
+      setIsLoading(false);
+      
     } catch (error) {
       console.error('loadRealData: Failed to load real activities', {
         error: error.message,
@@ -122,6 +172,8 @@ export function Dashboard({ onLogout, accessToken }) {
         timestamp: new Date().toISOString(),
         isAuthError: error.message.includes('Unauthorized') || error.message.includes('401')
       });
+      
+      setIsLoading(false);
       
       // Check if it's an auth error
       if (error.message.includes('Unauthorized') || error.message.includes('401')) {
