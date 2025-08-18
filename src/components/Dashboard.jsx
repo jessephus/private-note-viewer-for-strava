@@ -349,18 +349,6 @@ export function Dashboard({ onLogout, accessToken }) {
                       <div className="text-sm text-muted-foreground mt-1">Elevation</div>
                     </div>
                   </div>
-                <div className="text-center p-4 bg-card rounded-lg border">
-                  <div className="text-3xl font-bold text-success">
-                    {formatSpeed(selectedActivity.average_speed || 0, units)}
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-1">Avg Speed</div>
-                </div>
-                <div className="text-center p-4 bg-card rounded-lg border">
-                  <div className="text-3xl font-bold">
-                    {formatElevation(selectedActivity.total_elevation_gain, units)}
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-1">Elevation</div>
-                </div>
 
                   {selectedActivityDetails.average_heartrate && (
                     <div className="mt-6 grid grid-cols-2 gap-4">
@@ -506,7 +494,7 @@ export function Dashboard({ onLogout, accessToken }) {
                   <ActivityCard
                     key={activity.id}
                     activity={activity}
-                    onClick={() => setSelectedActivity(activity)}
+                    onClick={() => fetchActivityDetails(activity)}
                     units={units}
                   />
                 ))}
