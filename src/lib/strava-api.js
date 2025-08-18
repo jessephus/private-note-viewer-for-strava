@@ -1,6 +1,7 @@
-const STRAVA_CLIENT_ID = '173282'; // Demo client ID - in production this would be configurable
+const STRAVA_CLIENT_ID = process.env.STRAVA_CLIENT_ID || '173282'; // Will be loaded from backend
 const STRAVA_REDIRECT_URI = window.location.origin;
 const STRAVA_SCOPE = 'read,activity:read';
+const BACKEND_URL = 'http://localhost:3001';
 
 export class StravaAPI {
   constructor(accessToken) {
@@ -20,26 +21,32 @@ export class StravaAPI {
   }
 
   async exchangeCodeForToken(code) {
-    // In a real app, this would go through your backend
-    // For demo purposes, we'll simulate the token exchange
-    const response = await fetch('https://www.strava.com/oauth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: STRAVA_CLIENT_ID,
-        client_secret: 'your_client_secret', // This should be on your backend
-        code,
-        grant_type: 'authorization_code'
-      })
-    });
+    try {
+      // Call our backend to exchange the code for tokens
+      const response = await fetch(`${BACKEND_URL}/api/oauth/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ code })
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to exchange code for token');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to exchange code for token');
+      }
+
+      const tokenData = await response.json();
+      
+      // Store the access token for future use
+      this.setAccessToken(tokenData.access_token);
+      
+      return tokenData;
+    } catch (error) {
+      console.error('Token exchange error:', error);
+      throw error;
     }
-
-    return response.json();
   }
 
   setAccessToken(token) {

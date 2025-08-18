@@ -16,7 +16,7 @@ export default defineConfig({
       '@': resolve(projectRoot, 'src')
     }
   },
-  base: './', // For GitHub Pages compatibility
+
   build: {
     outDir: 'dist',
     sourcemap: false,
