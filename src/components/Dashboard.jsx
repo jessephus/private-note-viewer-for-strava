@@ -275,6 +275,10 @@ export function Dashboard({ onLogout, accessToken }) {
                     {Array.from({ length: 4 }).map((_, i) => (
                       <Skeleton key={i} className="h-24 w-full" />
                     ))}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="text-center p-4 bg-card rounded-lg border">
+                  <div className="text-3xl font-bold text-primary">
+                    {formatDistance(selectedActivity.distance, units)}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     {Array.from({ length: 2 }).map((_, i) => (
@@ -310,6 +314,19 @@ export function Dashboard({ onLogout, accessToken }) {
                       <div className="text-sm text-muted-foreground mt-1">Elevation</div>
                     </div>
                   </div>
+                <div className="text-center p-4 bg-card rounded-lg border">
+                  <div className="text-3xl font-bold text-success">
+                    {formatSpeed(selectedActivity.average_speed || 0, units)}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">Avg Speed</div>
+                </div>
+                <div className="text-center p-4 bg-card rounded-lg border">
+                  <div className="text-3xl font-bold">
+                    {formatElevation(selectedActivity.total_elevation_gain, units)}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">Elevation</div>
+                </div>
+              </div>
 
                   {selectedActivityDetails.average_heartrate && (
                     <div className="mt-6 grid grid-cols-2 gap-4">
@@ -455,7 +472,7 @@ export function Dashboard({ onLogout, accessToken }) {
                   <ActivityCard
                     key={activity.id}
                     activity={activity}
-                    onClick={() => fetchActivityDetails(activity)}
+                    onClick={() => setSelectedActivity(activity)}
                     units={units}
                   />
                 ))}
