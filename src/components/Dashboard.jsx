@@ -326,7 +326,6 @@ export function Dashboard({ onLogout, accessToken }) {
                   </div>
                   <div className="text-sm text-muted-foreground mt-1">Elevation</div>
                 </div>
-              </div>
 
                   {selectedActivityDetails.average_heartrate && (
                     <div className="mt-6 grid grid-cols-2 gap-4">
