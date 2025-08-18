@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
+import { useActivityCache } from '@/hooks/use-activity-cache';
 import { ActivityCard } from './ActivityCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,9 @@ export function Dashboard({ onLogout, accessToken }) {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isRealData, setIsRealData] = useLocalStorage('strava-real-data', false);
   const [units, setUnits] = useLocalStorage('strava-units', 'metric');
+  
+  // Initialize activity cache with 60 minute TTL
+  const activityCache = useActivityCache(60);
 
   // Generate demo data for the demo mode
   const generateDemoActivities = () => {
@@ -153,14 +157,37 @@ export function Dashboard({ onLogout, accessToken }) {
     setIsLoadingDetails(true);
     
     try {
+      // Check cache first
+      const cachedActivity = activityCache.getCachedActivity(activity.id);
+      
+      if (cachedActivity) {
+        console.log('fetchActivityDetails: Using cached activity data', {
+          activityId: activity.id,
+          hasPrivateNote: !!cachedActivity.private_note,
+          privateNoteLength: cachedActivity.private_note ? cachedActivity.private_note.length : 0
+        });
+        
+        setSelectedActivityDetails(cachedActivity);
+        setIsLoadingDetails(false);
+        return;
+      }
+      
+      // Cache miss - fetch from API
+      console.log('fetchActivityDetails: Cache miss, fetching from API', {
+        activityId: activity.id
+      });
+      
       const stravaAPI = new StravaAPI(accessToken);
       const detailedActivity = await stravaAPI.getActivity(activity.id);
       
-      console.log('fetchActivityDetails: Successfully loaded detailed activity data', {
+      console.log('fetchActivityDetails: Successfully loaded detailed activity data from API', {
         activityId: activity.id,
         hasPrivateNote: !!detailedActivity.private_note,
         privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
       });
+      
+      // Cache the result
+      activityCache.setCachedActivity(activity.id, detailedActivity);
       
       setSelectedActivityDetails(detailedActivity);
     } catch (error) {
@@ -184,6 +211,8 @@ export function Dashboard({ onLogout, accessToken }) {
       // Clear any cached demo data first
       if (!isRealData) {
         setActivities([]);
+        // Clear cache when switching from demo to real data
+        activityCache.clearCache();
       }
       loadRealData();
     } else if (activities.length === 0) {
@@ -192,7 +221,22 @@ export function Dashboard({ onLogout, accessToken }) {
     }
   }, [accessToken]);
 
+  // Periodic cache cleanup every 5 minutes
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      activityCache.cleanupExpiredEntries();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    // Initial cleanup on mount
+    activityCache.cleanupExpiredEntries();
+
+    return () => clearInterval(cleanupInterval);
+  }, [activityCache]);
+
   const refreshData = () => {
+    // Clear activity details cache when refreshing data
+    activityCache.clearCache();
+    
     if (accessToken) {
       loadRealData();
     } else {
