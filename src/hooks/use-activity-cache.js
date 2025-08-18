@@ -115,6 +115,26 @@ export function useActivityCache(ttlMinutes = 60) {
   };
   
   /**
+   * Get all cached activities that are still valid
+   * @returns {array} Array of cached activity data
+   */
+  const getAllCachedActivities = () => {
+    const cachedActivities = [];
+    
+    Object.values(cache).forEach(entry => {
+      if (isCacheValid(entry)) {
+        cachedActivities.push(entry.data);
+      }
+    });
+    
+    console.log('useActivityCache.getAllCachedActivities: Retrieved cached activities', {
+      count: cachedActivities.length
+    });
+    
+    return cachedActivities;
+  };
+
+  /**
    * Get cache statistics
    */
   const getCacheStats = () => {
@@ -137,6 +157,7 @@ export function useActivityCache(ttlMinutes = 60) {
     clearCache,
     cleanupExpiredEntries,
     getCacheStats,
+    getAllCachedActivities,
     isCacheValid
   };
 }
