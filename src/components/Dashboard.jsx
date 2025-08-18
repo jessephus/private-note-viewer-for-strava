@@ -181,25 +181,13 @@ export function Dashboard({ onLogout, accessToken }) {
         });
 
         if (uniqueNewActivities.length > 0) {
-          // Preload detailed data for new activities to get private notes
-          const detailedNewActivities = await Promise.all(
-            uniqueNewActivities.map(async (activity) => {
-              try {
-                const detailedActivity = await stravaAPI.getActivity(activity.id);
-                activityCache.setCachedActivity(activity.id, detailedActivity);
-                return detailedActivity;
-              } catch (error) {
-                console.warn('fetchActivitiesInDateRange: Failed to load detailed data for activity', {
-                  activityId: activity.id,
-                  error: error.message
-                });
-                return activity;
-              }
-            })
-          );
+          // Just add the summary data, detailed data will be loaded on-demand when needed
+          console.log('fetchActivitiesInDateRange: Added new activities (detailed data will be loaded on-demand)', {
+            totalActivities: uniqueNewActivities.length
+          });
 
           // Update activities with new data, sorted by date (newest first)
-          const allActivities = [...activities, ...detailedNewActivities];
+          const allActivities = [...activities, ...uniqueNewActivities];
           allActivities.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
           
           setActivities(allActivities);
@@ -332,56 +320,10 @@ export function Dashboard({ onLogout, accessToken }) {
       // Set initial activities data immediately so the UI shows something
       setActivities(realActivities);
       setIsRealData(true);
-      toast.success(`Loaded ${realActivities.length} activities from Strava!`);
-      
-      // Now preload detailed data for all activities to get private notes
-      console.log('loadRealData: Starting to preload private notes for all activities');
-      
-      const detailedActivities = await Promise.all(
-        realActivities.map(async (activity) => {
-          try {
-            // Check cache first
-            const cachedActivity = activityCache.getCachedActivity(activity.id);
-            if (cachedActivity) {
-              console.log('loadRealData: Using cached detailed data for activity', {
-                activityId: activity.id,
-                hasPrivateNote: !!cachedActivity.private_note
-              });
-              return cachedActivity;
-            }
-            
-            // Fetch detailed activity data including private notes
-            const detailedActivity = await stravaAPI.getActivity(activity.id);
-            
-            // Cache the detailed data
-            activityCache.setCachedActivity(activity.id, detailedActivity);
-            
-            console.log('loadRealData: Loaded detailed data for activity', {
-              activityId: activity.id,
-              hasPrivateNote: !!detailedActivity.private_note,
-              privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
-            });
-            
-            return detailedActivity;
-          } catch (error) {
-            console.warn('loadRealData: Failed to load detailed data for activity, using summary', {
-              activityId: activity.id,
-              error: error.message
-            });
-            // Return summary data if detailed fetch fails
-            return activity;
-          }
-        })
-      );
-      
-      console.log('loadRealData: Successfully preloaded private notes', {
-        totalActivities: detailedActivities.length,
-        activitiesWithNotes: detailedActivities.filter(a => a.private_note).length
-      });
-      
-      // Update activities with detailed data including private notes
-      setActivities(detailedActivities);
       setIsLoading(false);
+      toast.success(`Loaded ${realActivities.length} activities from Strava! (Detailed data will be loaded on-demand)`);
+      
+      console.log('loadRealData: Initial activities loaded, detailed data will be fetched on-demand when needed');
       
     } catch (error) {
       console.error('loadRealData: Failed to load real activities', {
