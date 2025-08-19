@@ -132,7 +132,75 @@ export function Dashboard({ onLogout, accessToken }) {
     }
     
     // Check if requested range extends beyond currently loaded data
-    return requestedRange.from < loadedDateRange.from || requestedRange.to > loadedDateRange.to;
+    const needsEarlierData = requestedRange.from < loadedDateRange.from;
+    const needsLaterData = requestedRange.to > loadedDateRange.to;
+    
+    // If we need earlier or later data, check if we have cached activities that cover the gap
+    if (needsEarlierData || needsLaterData) {
+      // Get all cached activities to see if they cover the requested range
+      const cachedActivities = activityCache.getAllCachedActivities();
+      if (cachedActivities.length === 0) {
+        return true; // No cache, need to fetch
+      }
+      
+      // Find the date range of cached activities
+      const cachedDates = cachedActivities.map(activity => new Date(activity.start_date));
+      const cachedMinDate = new Date(Math.min(...cachedDates));
+      const cachedMaxDate = new Date(Math.max(...cachedDates));
+      
+      // Check if cached activities cover the requested range
+      const cacheCoversRange = requestedRange.from >= cachedMinDate && requestedRange.to <= cachedMaxDate;
+      
+      console.log('needsAdditionalData: Checking cache coverage', {
+        requestedRange: {
+          from: requestedRange.from.toISOString(),
+          to: requestedRange.to.toISOString()
+        },
+        loadedRange: {
+          from: loadedDateRange.from.toISOString(),
+          to: loadedDateRange.to.toISOString()
+        },
+        cachedRange: {
+          from: cachedMinDate.toISOString(),
+          to: cachedMaxDate.toISOString()
+        },
+        cachedActivitiesCount: cachedActivities.length,
+        cacheCoversRange,
+        needsEarlierData,
+        needsLaterData
+      });
+      
+      // If cache covers the range, merge cached activities that fall within the requested range
+      if (cacheCoversRange) {
+        const relevantCachedActivities = cachedActivities.filter(activity => {
+          const activityDate = new Date(activity.start_date);
+          return activityDate >= requestedRange.from && activityDate <= requestedRange.to;
+        });
+        
+        if (relevantCachedActivities.length > 0) {
+          // Merge cached activities with existing ones
+          const existingIds = new Set(activities.map(a => a.id));
+          const newCachedActivities = relevantCachedActivities.filter(a => !existingIds.has(a.id));
+          
+          if (newCachedActivities.length > 0) {
+            console.log('needsAdditionalData: Using cached activities for date range', {
+              newCachedActivitiesCount: newCachedActivities.length
+            });
+            
+            // Update activities with cached data, sorted by date (newest first)
+            const allActivities = [...activities, ...newCachedActivities];
+            allActivities.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+            
+            setActivities(allActivities);
+            toast.success(`Found ${newCachedActivities.length} cached activities for selected date range`);
+          }
+          
+          return false; // No need to fetch from API
+        }
+      }
+    }
+    
+    return needsEarlierData || needsLaterData;
   };
 
   // Function to fetch activities for a specific date range
@@ -185,8 +253,25 @@ export function Dashboard({ onLogout, accessToken }) {
           const detailedNewActivities = await Promise.all(
             uniqueNewActivities.map(async (activity) => {
               try {
+                // Check cache first  
+                const cachedActivity = activityCache.getCachedActivity(activity.id);
+                if (cachedActivity) {
+                  console.log('fetchActivitiesInDateRange: Using cached detailed data for activity', {
+                    activityId: activity.id,
+                    hasPrivateNote: !!cachedActivity.private_note
+                  });
+                  return cachedActivity;
+                }
+                
                 const detailedActivity = await stravaAPI.getActivity(activity.id);
                 activityCache.setCachedActivity(activity.id, detailedActivity);
+                
+                console.log('fetchActivitiesInDateRange: Loaded detailed data for activity', {
+                  activityId: activity.id,
+                  hasPrivateNote: !!detailedActivity.private_note,
+                  privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
+                });
+                
                 return detailedActivity;
               } catch (error) {
                 console.warn('fetchActivitiesInDateRange: Failed to load detailed data for activity', {
@@ -197,6 +282,11 @@ export function Dashboard({ onLogout, accessToken }) {
               }
             })
           );
+
+          console.log('fetchActivitiesInDateRange: Successfully preloaded detailed data for new activities', {
+            totalActivities: detailedNewActivities.length,
+            activitiesWithNotes: detailedNewActivities.filter(a => a.private_note).length
+          });
 
           // Update activities with new data, sorted by date (newest first)
           const allActivities = [...activities, ...detailedNewActivities];

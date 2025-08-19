@@ -3,10 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Badge } from '@/components/ui/badge';
-import { CalendarIcon, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { format } from 'date-fns';
 
 export function ActivityFilters({ 
@@ -16,7 +15,6 @@ export function ActivityFilters({
   dateRange,
   availableActivityTypes = []
 }) {
-  const [showDatePicker, setShowDatePicker] = useState(false);
   
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
@@ -75,44 +73,11 @@ export function ActivityFilters({
         <div className="space-y-2">
           <label className="text-sm font-medium">Date Range</label>
           <div className="flex items-center gap-2">
-            <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                        {format(dateRange.to, "LLL dd, y")}
-                      </>
-                    ) : (
-                      format(dateRange.from, "LLL dd, y")
-                    )
-                  ) : (
-                    <span>Pick date range</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-50" align="start" sideOffset={8}>
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateRange?.from}
-                  selected={dateRange}
-                  onSelect={(range) => {
-                    onDateRangeChange(range || { from: null, to: null });
-                    if (range?.from && range?.to) {
-                      setShowDatePicker(false);
-                    }
-                  }}
-                  numberOfMonths={1}
-                  className="max-w-sm"
-                />
-              </PopoverContent>
-            </Popover>
+            <DateRangePicker
+              value={dateRange}
+              onChange={onDateRangeChange}
+              placeholder="Pick date range"
+            />
             {hasDateRange && (
               <Button variant="outline" size="sm" onClick={clearDateRange}>
                 <X className="h-3 w-3" />
