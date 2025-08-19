@@ -31,8 +31,8 @@ A modern web application for visualizing and analyzing your Strava activities. B
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/jessephus/strava-activity-dash.git
-cd strava-activity-dash
+git clone https://github.com/jessephus/private-note-viewer-for-strava.git
+cd private-note-viewer-for-strava
 ```
 
 2. Install dependencies:
