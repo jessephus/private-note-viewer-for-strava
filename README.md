@@ -25,7 +25,7 @@ This isn't just another activity dashboard – it's specifically designed to mak
 - **Runners, cyclists, and other endurance athletes** who want to understand injury patterns
 - **People who want to own their data** and have better access to their training notes
 
-![App Screenshot](.github/other/app-screenshot.png)
+<img src=".github/other/app-screenshot.png" width="75%" border="1" alt="App Screenshot">
 
 ## Quick Start (Non-Technical Users)
 
