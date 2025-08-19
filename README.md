@@ -1,141 +1,147 @@
-# Strava Activity Dashboard
+# Private Note Viewer for Strava
 
-A modern web application for visualizing and analyzing your Strava activities. Built with React and JavaScript, this dashboard provides comprehensive insights into your athletic performance.
+## The Problem
+
+As an athlete, you probably track more than just your workouts in Strava. Maybe you've been diligent about logging injuries, pain levels, recovery notes, or training observations in your **Private Notes** – those personal notes that only you can see on each activity.
+
+But here's the frustrating part: months later, when you're trying to understand how an injury developed or recall what worked during your last training cycle, those valuable notes are buried and nearly impossible to search through. Strava doesn't provide an easy way to view all your private notes in one place or search through them effectively.
+
+## The Solution
+
+I built this app to solve exactly that problem. **Private Note Viewer for Strava** gives you a searchable, organized view of all your private notes alongside your activity data. Now you can:
+
+- **Search through all your private notes** to find patterns in injuries or training
+- **Filter activities** by sport type, date range, or keywords in your notes  
+- **Review your injury history** to understand what led to problems and what helped recovery
+- **Track your training thoughts** over time to see what strategies worked best
+- **Export your data** to keep your own backup of these important insights
+
+This isn't just another activity dashboard – it's specifically designed to make your private notes useful and accessible.
+
+## Who This Is For
+
+- **Athletes who use Strava's Private Notes** to track injuries, pain, recovery, or training insights
+- **Anyone frustrated** by Strava's lack of searchable private note history
+- **Runners, cyclists, and other endurance athletes** who want to understand injury patterns
+- **People who want to own their data** and have better access to their training notes
+
+## Quick Start (Non-Technical Users)
+
+Don't worry – you don't need to be a programmer to use this! Here's how to get started:
+
+### Option 1: Try the Demo First
+1. Visit the app (instructions below for setup)
+2. Click **"Try Demo Mode"** to see how it works with sample data
+3. No Strava connection required – just explore the features
+
+### Option 2: Connect Your Real Strava Data
+1. Follow the setup instructions below (they're simpler than they look!)
+2. Click **"Connect with Strava"** 
+3. Authorize the app to read your activities and private notes
+4. Start searching and organizing your notes immediately
+
+**Important**: This app only reads your data – it never modifies or deletes anything in your Strava account.
+
+## Setup Instructions
+
+### What You'll Need
+- A computer (Windows, Mac, or Linux)
+- About 15 minutes for setup
+- Your Strava account login
+
+### Step-by-Step Setup
+
+**Don't panic if these steps look technical – just follow them one by one:**
+
+1. **Install Node.js** (this is the engine that runs the app):
+   - Go to https://nodejs.org
+   - Download the "LTS" version (the green button)
+   - Run the installer with default settings
+
+2. **Download this app**:
+   ```bash
+   # Open Terminal (Mac) or Command Prompt (Windows)
+   # Copy and paste this command:
+   git clone https://github.com/jessephus/private-note-viewer-for-strava.git
+   cd private-note-viewer-for-strava
+   ```
+
+3. **Install the app**:
+   ```bash
+   # Copy and paste this command:
+   npm install
+   ```
+
+4. **Set up Strava connection** (optional - skip if you just want to try demo mode):
+   - Visit https://www.strava.com/settings/api
+   - Create a new app (use any name, website, and description you want)
+   - Copy your Client ID and Client Secret
+   - Create a file called `.env` in the app folder with:
+     ```
+     STRAVA_CLIENT_ID=your_client_id_here
+     STRAVA_CLIENT_SECRET=your_client_secret_here
+     ```
+
+5. **Start the app**:
+   ```bash
+   # First, start the background server:
+   npm run server
+   
+   # Then in a new Terminal/Command Prompt window:
+   npm run dev
+   ```
+
+6. **Open your browser** and go to: http://localhost:5173
+
+That's it! You now have your own private note viewer running.
 
 ## Features
 
-- 🏃‍♂️ **Activity Dashboard**: View your recent activities with detailed metrics
-- 📊 **Performance Analytics**: Visualize training trends and performance metrics  
-- 🎯 **Statistics**: Track totals by activity type, distance, time, and elevation
-- 🔒 **Secure Authentication**: OAuth 2.0 integration with Strava
-- 📱 **Responsive Design**: Works seamlessly on desktop and mobile devices
-- ⚡ **Demo Mode**: Try the dashboard with sample data without connecting to Strava
+- 🔍 **Search Your Notes**: Find activities by keywords in your private notes
+- 📅 **Filter by Date**: Look at specific time periods to track injury progression
+- 🏃‍♂️ **Filter by Sport**: Focus on running injuries vs cycling issues, etc.
+- 📊 **Visual Timeline**: See your activities and notes in chronological order
+- 🔒 **Private & Secure**: Your data stays on your computer – nothing is stored elsewhere
+- 💾 **Export Options**: Save your data as files for backup or further analysis
+- 📱 **Works on Mobile**: Use on your phone or tablet too
 
-## Technologies
+## Common Questions
 
-- **React 19** - Modern React with hooks
-- **Vite** - Fast build tool and dev server
-- **Tailwind CSS** - Utility-first CSS framework
-- **Radix UI** - Accessible UI components
-- **Lucide React** - Beautiful icons
-- **JavaScript** - No TypeScript dependencies
+**Q: Is this safe? Will it change my Strava data?**
+A: Completely safe! This app only *reads* your data. It cannot modify, delete, or post anything to your Strava account.
 
-## Getting Started
+**Q: Can other people see my private notes?**
+A: No! Your notes stay private. This app runs entirely on your own computer.
 
-### Prerequisites
+**Q: What if I'm not technical?**
+A: The setup instructions are designed for beginners. If you get stuck, the error messages usually tell you exactly what to do.
 
-- Node.js 18 or higher
-- npm or yarn package manager
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/jessephus/private-note-viewer-for-strava.git
-cd private-note-viewer-for-strava
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Start the development server:
-```bash
-npm run dev
-```
-
-4. Open http://localhost:5173 in your browser
-
-### Building for Production
-
-```bash
-npm run build
-```
-
-The built files will be in the `dist` directory, ready for deployment to any static hosting provider.
-
-## Local Development
-
-This application is configured to run locally with a backend server for proper OAuth authentication.
-
-### Running the Full Application
-
-1. Start the backend server:
-```bash
-npm run server
-```
-
-2. In a new terminal, start the frontend development server:
-```bash
-npm run dev
-```
-
-3. Open http://localhost:5173 in your browser
-
-The backend server will run on http://localhost:3001 and handle OAuth token exchange securely.
-
-## Usage
-
-### Demo Mode
-Click "Try Demo Mode" to explore the dashboard with sample activity data.
-
-### Strava Integration
-1. Click "Connect with Strava"
-2. Authorize the application in your Strava account
-3. View your real activity data in the dashboard
-
-**Note**: To use real Strava data, you'll need to:
-1. Register your application with Strava
-2. Create a `.env` file with your Strava credentials:
-   ```
-   STRAVA_CLIENT_ID=your_client_id
-   STRAVA_CLIENT_SECRET=your_client_secret
-   ```
-3. The backend server will handle secure OAuth token exchange
+**Q: Do I need to keep my computer running?**
+A: Only when you want to use the app. You can close it anytime and restart it later.
 
 ## Troubleshooting
 
-### Authentication Errors
+### "Command not found" errors
+- Make sure you installed Node.js from the official website
+- Restart your Terminal/Command Prompt after installing Node.js
 
-If you encounter authentication errors like "Failed to fetch" or "ERR_CONNECTION_REFUSED":
+### "Cannot connect to Strava" errors
+- Check that you copied your Client ID and Client Secret correctly
+- Make sure both the server (`npm run server`) and app (`npm run dev`) are running
 
-1. **Check Backend Server Status**
-   ```bash
-   # Verify the backend server is running on port 3001
-   curl http://localhost:3001/api/health
-   ```
+### Other issues
+- Try the Demo Mode first to make sure the app works
+- Check the Terminal/Command Prompt for error messages – they usually explain the problem
+- Make sure no other apps are using ports 3001 or 5173
 
-2. **Environment Configuration**
-   - Create a `.env` file based on `.env.example`
-   - Ensure `STRAVA_CLIENT_SECRET` is set (required for OAuth)
-   - Check that `VITE_BACKEND_URL` matches your backend server URL
+## Technical Details (For Developers)
 
-3. **Port Conflicts**
-   - Backend runs on port 3001 by default
-   - Frontend runs on port 5173 by default  
-   - Change ports in `.env` if needed:
-     ```
-     PORT=3001                    # Backend port
-     VITE_BACKEND_URL=http://localhost:3001  # Frontend backend URL
-     ```
-
-4. **Network Issues**
-   - Ensure no firewall is blocking connections
-   - Try running both servers on the same machine
-   - Check browser console for detailed error messages
-
-5. **Strava API Configuration**
-   - Verify your Strava app is configured at https://www.strava.com/settings/api
-   - Ensure the redirect URI in your Strava app matches your frontend URL
-   - Check that your `STRAVA_CLIENT_ID` and `STRAVA_CLIENT_SECRET` are correct
-
-### Common Error Messages
-
-- **"Cannot connect to backend server"**: Backend server is not running or wrong URL
-- **"Authentication server is unavailable"**: Network connectivity issues
-- **"Failed to exchange code for token"**: Invalid Strava credentials or configuration
-- **"Your Strava session has expired"**: Token validation failed, sign in again
+Built with modern web technologies:
+- **React 19** with hooks
+- **Vite** for fast development
+- **Tailwind CSS** for styling
+- **Node.js** backend for secure OAuth
+- **JavaScript** (no TypeScript complexity)
 
 ## Project Structure
 
