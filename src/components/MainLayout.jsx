@@ -11,9 +11,15 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Activity, BarChart3, LogOut, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 
-export function MainLayout({ children, onLogout, currentModule = 'private-notes', onModuleChange, apiStatus = 'available' }) {
+export function MainLayout({ children, onLogout, currentModule = 'private-notes', onModuleChange, apiStatus = 'available', apiStatusDetails = null }) {
   const activeModule = currentModule;
 
   const handleModuleChange = (moduleId) => {
@@ -29,28 +35,32 @@ export function MainLayout({ children, onLogout, currentModule = 'private-notes'
           icon: Wifi,
           color: 'text-green-500',
           bgColor: 'bg-green-500/10',
-          text: 'API Available'
+          text: 'API Available',
+          tooltip: 'Strava API is available and responding normally'
         };
       case 'rate-limited':
         return {
           icon: WifiOff,
           color: 'text-red-500',
           bgColor: 'bg-red-500/10',
-          text: 'Rate Limited'
+          text: 'Rate Limited',
+          tooltip: apiStatusDetails?.details || 'API rate limit exceeded. Please wait before making more requests.'
         };
       case 'error':
         return {
           icon: AlertTriangle,
           color: 'text-yellow-500',
           bgColor: 'bg-yellow-500/10',
-          text: 'API Error'
+          text: 'Error',
+          tooltip: apiStatusDetails?.details || 'API error occurred'
         };
       default:
         return {
           icon: Wifi,
           color: 'text-gray-500',
           bgColor: 'bg-gray-500/10',
-          text: 'Unknown'
+          text: 'Unknown',
+          tooltip: 'API status unknown'
         };
     }
   };
@@ -73,14 +83,15 @@ export function MainLayout({ children, onLogout, currentModule = 'private-notes'
   ];
 
   return (
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader className="border-b border-sidebar-border">
-          <div className="flex items-center gap-2 px-2 py-2">
-            <Activity className="h-6 w-6 text-sidebar-primary" />
-            <h1 className="text-lg font-semibold text-sidebar-foreground">Strava Tools</h1>
-          </div>
-        </SidebarHeader>
+    <TooltipProvider>
+      <SidebarProvider>
+        <Sidebar>
+          <SidebarHeader className="border-b border-sidebar-border">
+            <div className="flex items-center gap-2 px-2 py-2">
+              <Activity className="h-6 w-6 text-sidebar-primary" />
+              <h1 className="text-lg font-semibold text-sidebar-foreground">Strava Tools</h1>
+            </div>
+          </SidebarHeader>
         
         <SidebarContent>
           <SidebarMenu>
@@ -109,15 +120,22 @@ export function MainLayout({ children, onLogout, currentModule = 'private-notes'
         <SidebarFooter className="border-t border-sidebar-border">
           <SidebarMenu>
             <SidebarMenuItem>
-              <div className={`flex items-center gap-2 px-2 py-1 rounded-md ${getApiStatusIndicator().bgColor}`}>
-                {(() => {
-                  const StatusIcon = getApiStatusIndicator().icon;
-                  return <StatusIcon className={`h-3 w-3 ${getApiStatusIndicator().color}`} />;
-                })()}
-                <span className={`text-xs ${getApiStatusIndicator().color}`}>
-                  {getApiStatusIndicator().text}
-                </span>
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={`flex items-center gap-2 px-2 py-1 rounded-md cursor-help ${getApiStatusIndicator().bgColor}`}>
+                    {(() => {
+                      const StatusIcon = getApiStatusIndicator().icon;
+                      return <StatusIcon className={`h-3 w-3 ${getApiStatusIndicator().color}`} />;
+                    })()}
+                    <span className={`text-xs ${getApiStatusIndicator().color}`}>
+                      {getApiStatusIndicator().text}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{getApiStatusIndicator().tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton onClick={onLogout}>
@@ -150,5 +168,6 @@ export function MainLayout({ children, onLogout, currentModule = 'private-notes'
         </main>
       </SidebarInset>
     </SidebarProvider>
+    </TooltipProvider>
   );
 }

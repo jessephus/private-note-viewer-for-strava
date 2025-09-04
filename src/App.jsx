@@ -16,6 +16,7 @@ function App() {
   const [currentModule, setCurrentModule] = useState('private-notes');
   const [smartCache, setSmartCache] = useState(null);
   const [apiStatus, setApiStatus] = useState('available');
+  const [apiStatusDetails, setApiStatusDetails] = useState(null);
 
     // Debug: Log initial state
   console.log('App: Initial state', {
@@ -191,12 +192,28 @@ function App() {
         // Try a lightweight API call to check status
         await api.getAthleteProfile();
         setApiStatus('available');
+        setApiStatusDetails(null);
       } catch (error) {
         console.error('API status check failed:', error);
-        if (error.message.includes('rate') || error.status === 429) {
+        
+        // Handle rate limiting (429 errors)
+        if (error.status === 429 || error.message.includes('rate') || error.message.includes('429')) {
           setApiStatus('rate-limited');
+          setApiStatusDetails({
+            type: 'rate-limited',
+            message: 'API rate limit exceeded',
+            statusCode: error.status,
+            details: error.message
+          });
         } else {
+          // Handle other errors
           setApiStatus('error');
+          setApiStatusDetails({
+            type: 'error',
+            message: error.message || 'Unknown API error',
+            statusCode: error.status || 'Unknown',
+            details: `${error.status ? `HTTP ${error.status}: ` : ''}${error.message || 'Unknown error occurred'}`
+          });
         }
       }
     };
@@ -251,6 +268,7 @@ function App() {
           currentModule={currentModule}
           onModuleChange={setCurrentModule}
           apiStatus={apiStatus}
+          apiStatusDetails={apiStatusDetails}
         >
           {renderCurrentModule()}
         </MainLayout>
