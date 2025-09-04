@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import { useActivityCache } from '@/hooks/use-activity-cache';
 import { ActivityCard } from './ActivityCard';
 import { ActivityTable } from './ActivityTable';
 import { ActivityFilters } from './ActivityFilters';
@@ -45,9 +44,6 @@ export function PrivateNotesViewer({ accessToken }) {
   
   // Track the date range of currently loaded activities
   const [loadedDateRange, setLoadedDateRange] = useState({ from: null, to: null });
-  
-  // Initialize activity cache with 60 minute TTL
-  const activityCache = useActivityCache(60);
   
   // Smart cache for efficient API usage and private notes
   const [smartCache, setSmartCache] = useState(null);
@@ -449,18 +445,47 @@ export function PrivateNotesViewer({ accessToken }) {
       });
       
       // Try to load from smart cache database first
-      if (smartCache) {
+      let loadedFromSmartCache = false;
+      if (smartCache && smartCache.database) {
         try {
-          console.log('refreshData: API failed, trying to load from database cache');
+          console.log('refreshData: API failed, trying to load from smart cache database');
+          
+          // Wait for database to be ready
+          await smartCache.database.initPromise;
+          
           const cachedActivities = await smartCache.database.getAllActivities();
+          console.log('refreshData: Smart cache database query result', {
+            hasResult: !!cachedActivities,
+            resultType: typeof cachedActivities,
+            resultLength: cachedActivities ? cachedActivities.length : 'N/A'
+          });
+          
           if (cachedActivities && cachedActivities.length > 0) {
-            console.log('refreshData: Loaded from database cache after API failure', {
+            console.log('refreshData: Loaded from smart cache database after API failure', {
               cachedCount: cachedActivities.length,
-              withPrivateNotes: cachedActivities.filter(a => a.private_note).length
+              withPrivateNotes: cachedActivities.filter(a => a.private_note).length,
+              sampleActivity: cachedActivities[0] ? {
+                id: cachedActivities[0].id,
+                name: cachedActivities[0].name,
+                hasPrivateNote: !!cachedActivities[0].private_note
+              } : null
             });
             setActivities(cachedActivities);
             setIsRealData(true);
-            toast.info(`Loaded ${cachedActivities.length} activities from cache (API temporarily unavailable due to rate limits)`);
+            loadedFromSmartCache = true;
+            
+            // Get cache stats
+            try {
+              const stats = await smartCache.getStats();
+              setCacheStats(stats);
+            } catch (statsError) {
+              console.warn('refreshData: Failed to get cache stats after loading from database', statsError);
+            }
+            
+            toast.info(
+              `Loaded ${cachedActivities.length} activities from cache (API temporarily unavailable due to rate limits)`,
+              { duration: 8000 }
+            );
             
             // Update loaded date range based on cached data
             if (cachedActivities.length > 0) {
@@ -472,27 +497,29 @@ export function PrivateNotesViewer({ accessToken }) {
             }
             
             return; // Exit early with cached data
+          } else {
+            console.log('refreshData: Smart cache database is empty');
           }
         } catch (cacheError) {
-          console.warn('refreshData: Failed to load from database cache', {
-            error: cacheError.message
+          console.warn('refreshData: Failed to load from smart cache database', {
+            error: cacheError.message,
+            stack: cacheError.stack,
+            hasSmartCache: !!smartCache,
+            hasDatabase: !!(smartCache && smartCache.database)
           });
         }
+      } else {
+        console.log('refreshData: Smart cache not available for fallback', {
+          hasSmartCache: !!smartCache,
+          hasDatabase: !!(smartCache && smartCache.database)
+        });
       }
       
-      // Fallback: Try to load from old cache system
-      const cachedActivities = activityCache.getAllCachedActivities();
-      if (cachedActivities && cachedActivities.length > 0) {
-        console.log('refreshData: Loaded from old cache after API failure', {
-          cachedCount: cachedActivities.length
-        });
-        setActivities(cachedActivities);
-        setIsRealData(true);
-        toast.info(`Loaded ${cachedActivities.length} activities from cache (API temporarily unavailable)`);
-      } else {
-        console.log('refreshData: No cache available, loading demo data');
+      // If smart cache didn't work, fall back to demo data
+      if (!loadedFromSmartCache) {
+        console.log('refreshData: No smart cache data available, loading demo data');
         await loadDemoData();
-        toast.error('Failed to load activities from Strava. Showing demo data.');
+        toast.error('Failed to load activities from Strava. Showing demo data. Try refreshing after rate limits reset.');
       }
     } finally {
       setIsLoading(false);
@@ -596,20 +623,33 @@ export function PrivateNotesViewer({ accessToken }) {
 
     setIsLoadingDetails(true);
     try {
-      // Check cache first
-      const cachedActivity = activityCache.getCachedActivity(activity.id);
-      if (cachedActivity) {
-        console.log('handleActivitySelect: Using cached activity data');
-        setSelectedActivityDetails(cachedActivity);
-        setIsLoadingDetails(false);
-        return;
+      // Check smart cache first
+      if (smartCache) {
+        try {
+          const cachedActivity = await smartCache.database.getActivity(activity.id);
+          if (cachedActivity) {
+            console.log('handleActivitySelect: Using smart cached activity data');
+            setSelectedActivityDetails(cachedActivity);
+            setIsLoadingDetails(false);
+            return;
+          }
+        } catch (cacheError) {
+          console.warn('handleActivitySelect: Failed to check smart cache', cacheError);
+        }
       }
 
       const stravaAPI = new StravaAPI(accessToken);
       const details = await stravaAPI.getActivity(activity.id);
       
-      // Cache the detailed data
-      activityCache.setCachedActivity(activity.id, details);
+      // Cache the detailed data in smart cache
+      if (smartCache) {
+        try {
+          await smartCache.database.storeActivity(details);
+          console.log('handleActivitySelect: Stored activity in smart cache');
+        } catch (cacheError) {
+          console.warn('handleActivitySelect: Failed to store in smart cache', cacheError);
+        }
+      }
       
       console.log('handleActivitySelect: Activity details loaded', {
         activityId: activity.id,
@@ -653,8 +693,18 @@ export function PrivateNotesViewer({ accessToken }) {
   useEffect(() => {
     if (accessToken && !smartCache) {
       console.log('useEffect: Initializing smart cache with access token');
-      const cache = new SmartActivityCache(accessToken);
-      setSmartCache(cache);
+      const initializeSmartCache = async () => {
+        try {
+          const cache = new SmartActivityCache(accessToken);
+          // Wait for database to be initialized
+          await cache.database.initPromise;
+          setSmartCache(cache);
+          console.log('useEffect: Smart cache initialized and database ready');
+        } catch (error) {
+          console.error('useEffect: Failed to initialize smart cache', error);
+        }
+      };
+      initializeSmartCache();
     } else if (!accessToken && smartCache) {
       console.log('useEffect: Clearing smart cache due to missing access token');
       setSmartCache(null);
@@ -666,6 +716,7 @@ export function PrivateNotesViewer({ accessToken }) {
   useEffect(() => {
     console.log('useEffect: Initial data load triggered', {
       hasAccessToken: !!accessToken,
+      hasSmartCache: !!smartCache,
       activitiesCount: activities.length,
       isRealData,
       timestamp: new Date().toISOString()
@@ -673,9 +724,13 @@ export function PrivateNotesViewer({ accessToken }) {
     
     const loadInitialData = async () => {
       if (accessToken) {
-        // If we have an access token, always fetch real data
-        console.log('useEffect: Access token available, fetching real data');
-        await refreshData();
+        // Wait for smart cache to be initialized if access token is available
+        if (smartCache) {
+          console.log('useEffect: Access token and smart cache available, fetching real data');
+          await refreshData();
+        } else {
+          console.log('useEffect: Access token available but smart cache not ready yet');
+        }
       } else if (activities.length === 0) {
         // Only load demo data if no access token and no activities
         console.log('useEffect: No access token, loading demo data');
@@ -684,7 +739,7 @@ export function PrivateNotesViewer({ accessToken }) {
     };
     
     loadInitialData();
-  }, [accessToken]); // Removed isRealData from dependencies to avoid redundant calls
+  }, [accessToken, smartCache]); // Added smartCache dependency
 
   // Refresh data when date range changes and we need additional data
   useEffect(() => {
