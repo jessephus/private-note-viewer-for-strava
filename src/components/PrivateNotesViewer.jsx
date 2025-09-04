@@ -15,6 +15,12 @@ import { formatDistance, formatDuration, formatSpeed, formatElevation, StravaAPI
 import { toast } from 'sonner';
 
 export function PrivateNotesViewer({ accessToken }) {
+  // Debug: Log accessToken
+  console.log('PrivateNotesViewer: Received accessToken', {
+    hasToken: !!accessToken,
+    tokenPreview: accessToken ? accessToken.substring(0, 8) + '...' : 'null'
+  });
+
   const [activities, setActivities] = useLocalStorage('strava-activities', []);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);

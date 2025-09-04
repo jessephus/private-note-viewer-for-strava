@@ -1,9 +1,10 @@
 "use client"
 
-import { CSSProperties, ComponentProps, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import * as React from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { VariantProps, cva } from "class-variance-authority"
-import PanelLeftIcon from "lucide-react/dist/esm/icons/panel-left"
+import { PanelLeft } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -25,6 +26,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
+// Type definitions for React 19 compatibility
+type ComponentProps<T> = any;
+type CSSProperties = any;
+
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
@@ -42,7 +47,7 @@ type SidebarContextProps = {
   toggleSidebar: () => void
 }
 
-const SidebarContext = createContext<SidebarContextProps | null>(null)
+const SidebarContext = createContext(null)
 
 function useSidebar() {
   const context = useContext(SidebarContext)
@@ -113,7 +118,7 @@ function SidebarProvider({
   // This makes it easier to style the sidebar with Tailwind classes.
   const state = open ? "expanded" : "collapsed"
 
-  const contextValue = useMemo<SidebarContextProps>(
+  const contextValue = useMemo(
     () => ({
       state,
       open,
@@ -273,7 +278,7 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      <PanelLeftIcon />
+      <PanelLeft />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )

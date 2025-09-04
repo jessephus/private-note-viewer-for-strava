@@ -14,32 +14,52 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentModule, setCurrentModule] = useState('private-notes');
 
+    // Debug: Log initial state
+  console.log('App: Initial state', {
+    isAuthenticated,
+    hasAccessToken: !!accessToken,
+    accessTokenPrefix: accessToken ? accessToken.substring(0, 8) + '...' : 'none',
+    localStorageToken: localStorage.getItem('strava-access-token'),
+    localStorageAuth: localStorage.getItem('strava-authenticated'),
+    currentModule,
+    timestamp: new Date().toISOString()
+  });
+
   useEffect(() => {
-    // Check for OAuth callback
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const state = urlParams.get('state');
-    const error = urlParams.get('error');
+    const handleAuthFlow = async () => {
+      // Check for OAuth callback
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const state = urlParams.get('state');
+      const error = urlParams.get('error');
 
-    if (error) {
-      toast.error('Authentication failed: ' + error);
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-      setIsLoading(false);
-      return;
-    }
+      if (error) {
+        toast.error('Authentication failed: ' + error);
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setIsLoading(false);
+        return;
+      }
 
-    if (code && state === 'strava_auth') {
-      // Exchange code for tokens using backend
-      handleTokenExchange(code);
-    } else {
-      // If we have a stored token, validate it
-      validateStoredToken();
-    }
-  }, []);
+      if (code && state === 'strava_auth') {
+        // Exchange code for tokens using backend
+        await handleTokenExchange(code);
+      } else {
+        // If we have a stored token, validate it
+        await validateStoredToken();
+      }
+    };
+
+    // Small delay to ensure localStorage hooks have initialized
+    setTimeout(handleAuthFlow, 100);
+  }, []); // Keep empty dependency array but use async function inside
 
   const validateStoredToken = async () => {
-    if (!accessToken) {
+    // Get the current token from localStorage, not from closure
+    const currentToken = localStorage.getItem('strava-access-token');
+    const parsedToken = currentToken ? JSON.parse(currentToken) : null;
+    
+    if (!parsedToken) {
       console.log('validateStoredToken: No access token found, skipping validation');
       
       // Test backend connectivity on startup for early warning
@@ -64,7 +84,7 @@ function App() {
     
     try {
       // Try to make a simple API call to validate the token
-      const stravaAPI = new StravaAPI(accessToken);
+      const stravaAPI = new StravaAPI(parsedToken);
       const athlete = await stravaAPI.getAthlete();
       // Token is valid, keep authentication state
       console.log('validateStoredToken: Token validation successful', {
@@ -76,8 +96,8 @@ function App() {
       console.error('validateStoredToken: Token validation failed', {
         error: error.message,
         errorType: error.constructor.name,
-        hasToken: !!accessToken,
-        tokenPrefix: accessToken ? accessToken.substring(0, 8) + '...' : 'none',
+        hasToken: !!parsedToken,
+        tokenPrefix: parsedToken ? parsedToken.substring(0, 8) + '...' : 'none',
         timestamp: new Date().toISOString()
       });
       
