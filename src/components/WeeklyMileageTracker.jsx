@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   CalendarDays, 
   TrendingUp, 
@@ -16,8 +17,21 @@ import {
   RefreshCw,
   Database,
   CheckCircle,
-  XCircle
+  XCircle,
+  BarChart3,
+  LineChart
 } from 'lucide-react';
+import { 
+  ResponsiveContainer, 
+  ComposedChart, 
+  Line, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend 
+} from 'recharts';
 import { WeeklyMileageCalculator } from '@/lib/weekly-mileage-calculator';
 import { WeeklyMileageDatabase } from '@/lib/weekly-mileage-database';
 import { formatDistance, formatDuration } from '@/lib/strava-api';
@@ -33,6 +47,15 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
   const [calculator, setCalculator] = useState(null);
   const [database] = useState(new WeeklyMileageDatabase());
   const [hasAutoStarted, setHasAutoStarted] = useState(false);
+
+  // Chart configuration state
+  const [chartTimeRange, setChartTimeRange] = useState('6months'); // 6months, 1year, 2years
+  const [chartMetric, setChartMetric] = useState('distance'); // distance, elevation, time
+  const [chartType, setChartType] = useState('line'); // line, bar
+  const [rollingAverage1, setRollingAverage1] = useState(4); // weeks, 0 for disabled
+  const [rollingAverage2, setRollingAverage2] = useState(12); // weeks, 0 for disabled
+  const [showRollingAvg1, setShowRollingAvg1] = useState(true);
+  const [showRollingAvg2, setShowRollingAvg2] = useState(false);
 
   // Initialize calculator when dependencies are ready
   useEffect(() => {
@@ -186,6 +209,103 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
     };
   };
 
+  // Chart data processing functions
+  const getTimeRangeWeeks = () => {
+    const now = new Date();
+    const weeksBack = {
+      '6months': 26,
+      '1year': 52,
+      '2years': 104
+    }[chartTimeRange];
+    
+    const cutoffDate = new Date(now);
+    cutoffDate.setDate(cutoffDate.getDate() - (weeksBack * 7));
+    
+    return weeklyData
+      .filter(week => new Date(week.weekStart) >= cutoffDate)
+      .sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+  };
+
+  const groupWeeksBy4WeekPeriods = (weeks) => {
+    const periods = [];
+    const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+    
+    for (let i = 0; i < sortedWeeks.length; i += 4) {
+      const periodWeeks = sortedWeeks.slice(i, i + 4);
+      if (periodWeeks.length === 0) continue;
+      
+      const firstWeek = periodWeeks[0];
+      const lastWeek = periodWeeks[periodWeeks.length - 1];
+      
+      // Calculate totals for the period
+      const totalDistance = periodWeeks.reduce((sum, w) => sum + w.totalDistance, 0);
+      const totalTime = periodWeeks.reduce((sum, w) => sum + w.totalTime, 0);
+      const totalElevation = periodWeeks.reduce((sum, w) => sum + w.totalElevation, 0);
+      
+      // Create period label (month/year of the middle of the period)
+      const midDate = new Date(firstWeek.weekStart);
+      midDate.setDate(midDate.getDate() + 14); // roughly middle of 4-week period
+      const periodLabel = midDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      
+      periods.push({
+        period: periodLabel,
+        distance: units === 'metric' ? totalDistance / 1000 : totalDistance / 1609.34, // km or miles
+        time: totalTime / 3600, // hours
+        elevation: units === 'metric' ? totalElevation : totalElevation * 3.28084, // m or ft
+        weekStart: firstWeek.weekStart,
+        weekEnd: lastWeek.weekEnd,
+        weekCount: periodWeeks.length
+      });
+    }
+    
+    return periods;
+  };
+
+  const calculateRollingAverage = (data, windowSize, metric) => {
+    if (windowSize === 0 || !data.length) return data;
+    
+    return data.map((point, index) => {
+      const start = Math.max(0, index - windowSize + 1);
+      const window = data.slice(start, index + 1);
+      const average = window.reduce((sum, p) => sum + p[metric], 0) / window.length;
+      
+      return {
+        ...point,
+        [`${metric}_avg_${windowSize}w`]: average
+      };
+    });
+  };
+
+  const getMetricLabel = () => {
+    switch (chartMetric) {
+      case 'distance':
+        return units === 'metric' ? 'Distance (km)' : 'Distance (mi)';
+      case 'time':
+        return 'Time (hours)';
+      case 'elevation':
+        return units === 'metric' ? 'Elevation (m)' : 'Elevation (ft)';
+      default:
+        return 'Value';
+    }
+  };
+
+  const chartData = useMemo(() => {
+    const filteredWeeks = getTimeRangeWeeks();
+    const groupedData = groupWeeksBy4WeekPeriods(filteredWeeks);
+    
+    let processedData = [...groupedData];
+    
+    // Add rolling averages
+    if (showRollingAvg1 && rollingAverage1 > 0) {
+      processedData = calculateRollingAverage(processedData, rollingAverage1, chartMetric);
+    }
+    if (showRollingAvg2 && rollingAverage2 > 0) {
+      processedData = calculateRollingAverage(processedData, rollingAverage2, chartMetric);
+    }
+    
+    return processedData;
+  }, [weeklyData, chartTimeRange, chartMetric, showRollingAvg1, showRollingAvg2, rollingAverage1, rollingAverage2, units]);
+
   const averages = calculateAverages();
 
   return (
@@ -306,7 +426,7 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
             </Card>
           )}
 
-          {/* Interactive Graph Placeholder */}
+          {/* Interactive Chart */}
           <Card className="lg:col-span-3">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -315,11 +435,200 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/20">
-                <div className="text-center text-muted-foreground">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Interactive Chart</p>
-                  <p className="text-xs">Coming Soon</p>
+              <div className="flex gap-4">
+                {/* Chart Controls Sidebar */}
+                <div className="flex-shrink-0 w-48 space-y-4">
+                  {/* Time Range */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Time Range</Label>
+                    <Select value={chartTimeRange} onValueChange={setChartTimeRange}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="6months">6 Months</SelectItem>
+                        <SelectItem value="1year">1 Year</SelectItem>
+                        <SelectItem value="2years">2 Years</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Metric */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Metric</Label>
+                    <Select value={chartMetric} onValueChange={setChartMetric}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="distance">Distance</SelectItem>
+                        <SelectItem value="time">Time</SelectItem>
+                        <SelectItem value="elevation">Elevation</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Chart Type */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Chart Type</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        variant={chartType === 'line' ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setChartType('line')}
+                      >
+                        <LineChart className="h-4 w-4 mr-1" />
+                        Line
+                      </Button>
+                      <Button
+                        variant={chartType === 'bar' ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setChartType('bar')}
+                      >
+                        <BarChart3 className="h-4 w-4 mr-1" />
+                        Bar
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Rolling Averages */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Rolling Averages</Label>
+                    
+                    {/* First Rolling Average */}
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={showRollingAvg1}
+                          onCheckedChange={setShowRollingAvg1}
+                        />
+                        <Label className="text-sm">Short WMA</Label>
+                      </div>
+                      {showRollingAvg1 && (
+                        <Select 
+                          value={rollingAverage1.toString()} 
+                          onValueChange={(v) => setRollingAverage1(parseInt(v))}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="2">2 week</SelectItem>
+                            <SelectItem value="3">3 week</SelectItem>
+                            <SelectItem value="4">4 week</SelectItem>
+                            <SelectItem value="6">6 week</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+
+                    {/* Second Rolling Average */}
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={showRollingAvg2}
+                          onCheckedChange={setShowRollingAvg2}
+                        />
+                        <Label className="text-sm">Long WMA</Label>
+                      </div>
+                      {showRollingAvg2 && (
+                        <Select 
+                          value={rollingAverage2.toString()} 
+                          onValueChange={(v) => setRollingAverage2(parseInt(v))}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="8">8 week</SelectItem>
+                            <SelectItem value="12">12 week</SelectItem>
+                            <SelectItem value="16">16 week</SelectItem>
+                            <SelectItem value="20">20 week</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Chart Area */}
+                <div className="flex-1 min-h-[400px]">
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={400}>
+                      <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="period" 
+                          fontSize={12}
+                        />
+                        <YAxis 
+                          fontSize={12}
+                          label={{ value: getMetricLabel(), angle: -90, position: 'insideLeft' }}
+                        />
+                        <Tooltip 
+                          formatter={(value, name) => [
+                            typeof value === 'number' ? value.toFixed(2) : value,
+                            name
+                          ]}
+                          labelFormatter={(label) => `Period: ${label}`}
+                        />
+                        <Legend />
+                        
+                        {/* Main data */}
+                        {chartType === 'line' ? (
+                          <Line
+                            type="monotone"
+                            dataKey={chartMetric}
+                            stroke="#8884d8"
+                            strokeWidth={2}
+                            dot={{ r: 4 }}
+                            name={getMetricLabel()}
+                          />
+                        ) : (
+                          <Bar
+                            dataKey={chartMetric}
+                            fill="#8884d8"
+                            name={getMetricLabel()}
+                          />
+                        )}
+                        
+                        {/* Rolling averages */}
+                        {showRollingAvg1 && (
+                          <Line
+                            type="monotone"
+                            dataKey={`${chartMetric}_avg_${rollingAverage1}w`}
+                            stroke="#82ca9d"
+                            strokeWidth={2}
+                            strokeDasharray="5 5"
+                            dot={{ r: 2 }}
+                            name={`${rollingAverage1}-period avg`}
+                          />
+                        )}
+                        
+                        {showRollingAvg2 && (
+                          <Line
+                            type="monotone"
+                            dataKey={`${chartMetric}_avg_${rollingAverage2}w`}
+                            stroke="#ffc658"
+                            strokeWidth={2}
+                            strokeDasharray="3 3"
+                            dot={{ r: 2 }}
+                            name={`${rollingAverage2}-period avg`}
+                          />
+                        )}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-[400px] flex items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/20">
+                      <div className="text-center text-muted-foreground">
+                        <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No data available for chart</p>
+                        <p className="text-xs">Complete some weeks to see progress</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
