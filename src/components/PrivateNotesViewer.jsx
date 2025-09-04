@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { useActivityCache } from '@/hooks/use-activity-cache';
+import { SmartActivityCache } from '@/lib/smart-activity-cache';
 import { ActivityCard } from './ActivityCard';
 import { ActivityTable } from './ActivityTable';
 import { ActivityFilters } from './ActivityFilters';
@@ -10,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Activity, TrendingUp, User, RefreshCw, TableProperties } from 'lucide-react';
+import { Activity, TrendingUp, User, RefreshCw, TableProperties, Database } from 'lucide-react';
 import { formatDistance, formatDuration, formatSpeed, formatElevation, StravaAPI } from '@/lib/strava-api';
 import { toast } from 'sonner';
 
@@ -45,8 +46,23 @@ export function PrivateNotesViewer({ accessToken }) {
   // Track the date range of currently loaded activities
   const [loadedDateRange, setLoadedDateRange] = useState({ from: null, to: null });
   
-  // Initialize activity cache with 60 minute TTL
+  // Initialize activity cache with 60 minute TTL (fallback for old system)
   const activityCache = useActivityCache(60);
+  
+  // Initialize smart cache system
+  const [smartCache, setSmartCache] = useState(null);
+  const [cacheStats, setCacheStats] = useState(null);
+
+  // Initialize smart cache when access token changes
+  useEffect(() => {
+    if (accessToken) {
+      const newSmartCache = new SmartActivityCache(accessToken);
+      setSmartCache(newSmartCache);
+      console.log('PrivateNotesViewer: Initialized smart cache with access token');
+    } else {
+      setSmartCache(null);
+    }
+  }, [accessToken]);
 
   // Filtered activities based on current filters
   const filteredActivities = useMemo(() => {
@@ -209,10 +225,9 @@ export function PrivateNotesViewer({ accessToken }) {
   }, [dateRange, loadedDateRange, activities]);
 
   const refreshData = async () => {
-    console.log('refreshData: Starting data refresh', {
+    console.log('refreshData: Starting data refresh with smart caching', {
       hasAccessToken: !!accessToken,
-      accessTokenValue: accessToken,
-      accessTokenType: typeof accessToken,
+      hasSmartCache: !!smartCache,
       activitiesCount: activities.length,
       dateRange: {
         from: dateRange.from?.toISOString() || 'null',
@@ -226,6 +241,12 @@ export function PrivateNotesViewer({ accessToken }) {
       console.log('refreshData: No access token, loading demo data');
       await loadDemoData();
       return;
+    }
+
+    if (!smartCache) {
+      console.log('refreshData: Smart cache not initialized, creating new instance');
+      const newSmartCache = new SmartActivityCache(accessToken);
+      setSmartCache(newSmartCache);
     }
 
     setIsLoading(true);
@@ -279,71 +300,34 @@ export function PrivateNotesViewer({ accessToken }) {
         per_page: 100
       });
 
-      const fetchedActivities = await stravaAPI.getActivities({
+      // Fetch summary activities first (fast, minimal API usage)
+      const summaryActivities = await stravaAPI.getActivities({
         after: fetchAfter,
         before: fetchBefore,
-        per_page: 100 // Fetch more activities
+        per_page: 100
       });
       
-      console.log('refreshData: Activities fetched successfully', {
-        fetchedCount: fetchedActivities.length,
-        hasPrivateNotes: fetchedActivities.filter(a => a.private_note).length,
-        activityTypes: [...new Set(fetchedActivities.map(a => a.type))],
+      console.log('refreshData: Summary activities fetched', {
+        summaryCount: summaryActivities.length,
+        activityTypes: [...new Set(summaryActivities.map(a => a.type))],
         dateRange: {
-          earliest: fetchedActivities.length > 0 ? new Date(Math.min(...fetchedActivities.map(a => new Date(a.start_date)))).toISOString() : 'none',
-          latest: fetchedActivities.length > 0 ? new Date(Math.max(...fetchedActivities.map(a => new Date(a.start_date)))).toISOString() : 'none'
+          earliest: summaryActivities.length > 0 ? new Date(Math.min(...summaryActivities.map(a => new Date(a.start_date)))).toISOString() : 'none',
+          latest: summaryActivities.length > 0 ? new Date(Math.max(...summaryActivities.map(a => new Date(a.start_date)))).toISOString() : 'none'
         }
       });
 
-      console.log('refreshData: Starting to preload private notes for all activities');
+      // Use smart cache to get complete activity data with minimal API calls
+      const currentSmartCache = smartCache || new SmartActivityCache(accessToken);
+      const detailedActivities = await currentSmartCache.loadActivitiesWithPrivateNotes(summaryActivities);
       
-      // Preload detailed data for all activities to get private notes
-      const detailedActivities = await Promise.all(
-        fetchedActivities.map(async (activity) => {
-          try {
-            // Check cache first
-            const cachedActivity = activityCache.getCachedActivity(activity.id);
-            if (cachedActivity) {
-              console.log('refreshData: Using cached detailed data for activity', {
-                activityId: activity.id,
-                hasPrivateNote: !!cachedActivity.private_note
-              });
-              return cachedActivity;
-            }
-            
-            // Fetch detailed activity data including private notes
-            const detailedActivity = await stravaAPI.getActivity(activity.id);
-            
-            // Cache the detailed data
-            activityCache.setCachedActivity(activity.id, detailedActivity);
-            
-            console.log('refreshData: Loaded detailed data for activity', {
-              activityId: activity.id,
-              hasPrivateNote: !!detailedActivity.private_note,
-              privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
-            });
-            
-            return detailedActivity;
-          } catch (error) {
-            console.warn('refreshData: Failed to load detailed data for activity, using summary', {
-              activityId: activity.id,
-              error: error.message
-            });
-            // Return summary data if detailed fetch fails
-            return activity;
-          }
-        })
-      );
-      
-      console.log('refreshData: Successfully preloaded private notes', {
+      console.log('refreshData: Smart cache loading complete', {
         totalActivities: detailedActivities.length,
         activitiesWithNotes: detailedActivities.filter(a => a.private_note).length
       });
 
-      // Cache the activities
-      detailedActivities.forEach(activity => {
-        activityCache.setCachedActivity(activity.id, activity);
-      });
+      // Get cache statistics
+      const stats = await currentSmartCache.getStats();
+      setCacheStats(stats);
       
       setActivities(detailedActivities);
       setIsRealData(true);
@@ -362,7 +346,15 @@ export function PrivateNotesViewer({ accessToken }) {
         }
       }
       
-      toast.success(`Loaded ${detailedActivities.length} activities with private notes from Strava`);
+      // Show success message with cache efficiency info
+      const apiCallsMade = stats?.session?.apiCalls || 0;
+      const cacheHits = stats?.session?.cacheHits || 0;
+      const hitRate = stats?.session?.hitRate || 0;
+      
+      toast.success(
+        `Loaded ${detailedActivities.length} activities! Cache efficiency: ${hitRate}% (${apiCallsMade} API calls, ${cacheHits} cache hits)`,
+        { duration: 5000 }
+      );
       
     } catch (error) {
       console.error('refreshData: Failed to load activities', {
@@ -473,7 +465,8 @@ export function PrivateNotesViewer({ accessToken }) {
     console.log('handleActivitySelect: Activity selected', {
       activityId: activity.id,
       activityName: activity.name,
-      hasAccessToken: !!accessToken
+      hasAccessToken: !!accessToken,
+      hasSmartCache: !!smartCache
     });
     
     setSelectedActivity(activity);
@@ -488,28 +481,44 @@ export function PrivateNotesViewer({ accessToken }) {
 
     setIsLoadingDetails(true);
     try {
-      // Check cache first
-      const cachedActivity = activityCache.getCachedActivity(activity.id);
-      if (cachedActivity) {
-        console.log('handleActivitySelect: Using cached activity data');
-        setSelectedActivityDetails(cachedActivity);
-        setIsLoadingDetails(false);
-        return;
+      let detailedActivity = activity;
+      
+      // Try to get detailed data using smart cache if available
+      if (smartCache) {
+        console.log('handleActivitySelect: Using smart cache to get activity details');
+        const cachedActivity = await smartCache.getActivity(activity.id);
+        if (cachedActivity) {
+          detailedActivity = cachedActivity;
+          console.log('handleActivitySelect: Got detailed activity from smart cache', {
+            activityId: activity.id,
+            hasPrivateNote: !!detailedActivity.private_note,
+            privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
+          });
+        }
+      } else {
+        // Fallback to old cache system
+        const cachedActivity = activityCache.getCachedActivity(activity.id);
+        if (cachedActivity) {
+          console.log('handleActivitySelect: Using fallback cache');
+          detailedActivity = cachedActivity;
+        } else {
+          // Last resort: fetch from API directly
+          console.log('handleActivitySelect: Fetching directly from API');
+          const stravaAPI = new StravaAPI(accessToken);
+          detailedActivity = await stravaAPI.getActivity(activity.id);
+          
+          // Cache the result
+          activityCache.setCachedActivity(activity.id, detailedActivity);
+          
+          console.log('handleActivitySelect: Activity details loaded from API', {
+            activityId: activity.id,
+            hasPrivateNote: !!detailedActivity.private_note,
+            privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
+          });
+        }
       }
-
-      const stravaAPI = new StravaAPI(accessToken);
-      const details = await stravaAPI.getActivity(activity.id);
       
-      // Cache the detailed data
-      activityCache.setCachedActivity(activity.id, details);
-      
-      console.log('handleActivitySelect: Activity details loaded', {
-        activityId: activity.id,
-        hasPrivateNote: !!details.private_note,
-        privateNoteLength: details.private_note ? details.private_note.length : 0
-      });
-      
-      setSelectedActivityDetails(details);
+      setSelectedActivityDetails(detailedActivity);
     } catch (error) {
       console.error('handleActivitySelect: Failed to load activity details', {
         activityId: activity.id,
@@ -703,6 +712,23 @@ export function PrivateNotesViewer({ accessToken }) {
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+          {cacheStats && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={async () => {
+                const stats = smartCache ? await smartCache.getStats() : null;
+                setCacheStats(stats);
+                toast.info(
+                  `Cache: ${stats?.totalActivities || 0} activities, ${stats?.activitiesWithNotes || 0} with notes. Session: ${stats?.session?.hitRate || 0}% hit rate`,
+                  { duration: 5000 }
+                );
+              }}
+            >
+              <Database className="mr-1 h-4 w-4" />
+              Cache ({cacheStats.totalActivities || 0})
+            </Button>
+          )}
         </div>
       </div>
 
