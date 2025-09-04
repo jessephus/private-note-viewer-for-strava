@@ -189,223 +189,248 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
   const averages = calculateAverages();
 
   return (
-    <div className="space-y-6">
-      {/* Header with Controls */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Weekly Mileage Tracker</h2>
-          <p className="text-muted-foreground">
-            Track your weekly running distance with smart caching
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          {/* Units Toggle */}
-          <div className="flex items-center space-x-2">
-            <Label htmlFor="units-toggle" className="text-sm font-medium">
-              Metric
-            </Label>
-            <Switch
-              id="units-toggle"
-              checked={units === 'imperial'}
-              onCheckedChange={(checked) => setUnits(checked ? 'imperial' : 'metric')}
-            />
-            <Label htmlFor="units-toggle" className="text-sm font-medium">
-              Imperial
-            </Label>
+    <div className="container mx-auto p-4">
+      <div className="space-y-6">
+        {/* Header with Controls */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Weekly Mileage Tracker</h2>
+            <p className="text-muted-foreground">
+              Track your weekly running distance with smart caching
+            </p>
           </div>
-          
-          {/* Calculation Status */}
-          {isCalculating && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-              Calculating...
+          <div className="flex items-center gap-4">
+            {/* Units Toggle */}
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="units-toggle" className="text-sm font-medium">
+                Metric
+              </Label>
+              <Switch
+                id="units-toggle"
+                checked={units === 'imperial'}
+                onCheckedChange={(checked) => setUnits(checked ? 'imperial' : 'metric')}
+              />
+              <Label htmlFor="units-toggle" className="text-sm font-medium">
+                Imperial
+              </Label>
             </div>
+            
+            {/* Calculation Status */}
+            {isCalculating && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                Calculating...
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Database Stats */}
+        {databaseStats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                  <div className="text-2xl font-bold">{databaseStats.totalWeeks}</div>
+                </div>
+                <div className="text-sm text-muted-foreground">Total Weeks</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <div className="text-2xl font-bold">{databaseStats.completeWeeks}</div>
+                </div>
+                <div className="text-sm text-muted-foreground">Complete Weeks</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <Activity className="h-5 w-5 text-primary" />
+                  <div className="text-2xl font-bold">{databaseStats.totalRuns}</div>
+                </div>
+                <div className="text-sm text-muted-foreground">Total Runs</div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <div className="text-2xl font-bold">
+                    {formatDistance(databaseStats.averageWeeklyDistance, units)}
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground">Avg Weekly</div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Second Row: Averages and Graph Placeholder */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Averages Display */}
+          {averages && (
+            <Card className="lg:col-span-1">
+              <CardHeader>
+                <CardTitle>Weekly Averages</CardTitle>
+                <div className="text-sm text-muted-foreground">{averages.totalWeeks} complete weeks</div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="text-left">
+                    <div className="text-2xl font-bold text-primary">
+                      {formatDistance(averages.avgDistance, units)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Average Distance</div>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-2xl font-bold text-primary">
+                      {formatDuration(averages.avgTime)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Average Time</div>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-2xl font-bold text-primary">
+                      {averages.avgRuns.toFixed(1)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Average Runs</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
-        </div>
-      </div>
 
-      {/* Database Stats */}
-      {databaseStats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <CalendarDays className="h-5 w-5 text-primary" />
-                <div className="text-2xl font-bold">{databaseStats.totalWeeks}</div>
-              </div>
-              <div className="text-sm text-muted-foreground">Total Weeks</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <div className="text-2xl font-bold">{databaseStats.completeWeeks}</div>
-              </div>
-              <div className="text-sm text-muted-foreground">Complete Weeks</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Activity className="h-5 w-5 text-primary" />
-                <div className="text-2xl font-bold">{databaseStats.totalRuns}</div>
-              </div>
-              <div className="text-sm text-muted-foreground">Total Runs</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                <div className="text-2xl font-bold">
-                  {formatDistance(databaseStats.averageWeeklyDistance, units)}
+          {/* Interactive Graph Placeholder */}
+          <Card className="lg:col-span-3">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Weekly Progress Chart
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg border-2 border-dashed border-muted-foreground/20">
+                <div className="text-center text-muted-foreground">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Interactive Chart</p>
+                  <p className="text-xs">Coming Soon</p>
                 </div>
               </div>
-              <div className="text-sm text-muted-foreground">Avg Weekly</div>
             </CardContent>
           </Card>
         </div>
-      )}
 
-      {/* Calculation Stats */}
-      {calculationStats && (
+        {/* Weekly Data Table */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              Last Calculation Results
-            </CardTitle>
+            <CardTitle>Weekly Mileage History</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <div className="font-medium">Weeks Processed</div>
-                <div className="text-2xl font-bold text-primary">{calculationStats.weeksProcessed}</div>
+            {isLoading ? (
+              <div className="text-center py-8">
+                <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+                <p>Loading weekly data...</p>
               </div>
-              <div>
-                <div className="font-medium">API Calls</div>
-                <div className="text-2xl font-bold text-orange-600">{calculationStats.apiCallsMade}</div>
+            ) : weeklyData.length === 0 ? (
+              <div className="text-center py-8">
+                <CalendarDays className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">No weekly data available yet</p>
+                <p className="text-sm text-muted-foreground">Calculation will start automatically...</p>
               </div>
-              <div>
-                <div className="font-medium">Cache Hits</div>
-                <div className="text-2xl font-bold text-green-600">{calculationStats.cacheHits}</div>
-              </div>
-              <div>
-                <div className="font-medium">Status</div>
-                <div className="text-sm">
-                  {calculationStats.rateLimitReached ? (
-                    <Badge variant="destructive">Rate Limited</Badge>
-                  ) : (
-                    <Badge variant="default">Complete</Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Averages Display */}
-      {averages && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Weekly Averages ({averages.totalWeeks} complete weeks)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {formatDistance(averages.avgDistance, units)}
-                </div>
-                <div className="text-sm text-muted-foreground">Average Distance</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {formatDuration(averages.avgTime)}
-                </div>
-                <div className="text-sm text-muted-foreground">Average Time</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {averages.avgRuns.toFixed(1)}
-                </div>
-                <div className="text-sm text-muted-foreground">Average Runs</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Weekly Data Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Weekly Mileage History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">
-              <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <p>Loading weekly data...</p>
-            </div>
-          ) : weeklyData.length === 0 ? (
-            <div className="text-center py-8">
-              <CalendarDays className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">No weekly data available yet</p>
-              <p className="text-sm text-muted-foreground">Calculation will start automatically...</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">Week</th>
-                    <th className="text-left py-2">Date Range</th>
-                    <th className="text-right py-2">Distance</th>
-                    <th className="text-right py-2">Time</th>
-                    <th className="text-right py-2">Runs</th>
-                    <th className="text-right py-2">Elevation</th>
-                    <th className="text-center py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {weeklyData.map((week) => (
-                    <tr key={week.weekId} className="border-b hover:bg-muted/50">
-                      <td className="py-3 font-medium">{week.weekId}</td>
-                      <td className="py-3 text-sm text-muted-foreground">
-                        {formatWeekRange(week.weekStart, week.weekEnd)}
-                      </td>
-                      <td className="py-3 text-right">
-                        <span className="font-medium">
-                          {formatDistance(week.totalDistance, units)}
-                        </span>
-                      </td>
-                      <td className="py-3 text-right text-sm">
-                        {formatDuration(week.totalTime)}
-                      </td>
-                      <td className="py-3 text-right">
-                        <span className="font-medium">{week.runCount}</span>
-                      </td>
-                      <td className="py-3 text-right text-sm">
-                        {units === 'metric' 
-                          ? `${Math.round(week.totalElevation)}m`
-                          : `${Math.round(week.totalElevation * 3.28084)}ft`
-                        }
-                      </td>
-                      <td className="py-3 text-center">
-                        {getWeekStatus(week)}
-                      </td>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2">Week</th>
+                      <th className="text-left py-2">Date Range</th>
+                      <th className="text-right py-2">Distance</th>
+                      <th className="text-right py-2">Time</th>
+                      <th className="text-right py-2">Runs</th>
+                      <th className="text-right py-2">Elevation</th>
+                      <th className="text-center py-2">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </thead>
+                  <tbody>
+                    {weeklyData.map((week) => (
+                      <tr key={week.weekId} className="border-b hover:bg-muted/50">
+                        <td className="py-3 font-medium">{week.weekId}</td>
+                        <td className="py-3 text-sm text-muted-foreground">
+                          {formatWeekRange(week.weekStart, week.weekEnd)}
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className="font-medium">
+                            {formatDistance(week.totalDistance, units)}
+                          </span>
+                        </td>
+                        <td className="py-3 text-right text-sm">
+                          {formatDuration(week.totalTime)}
+                        </td>
+                        <td className="py-3 text-right">
+                          <span className="font-medium">{week.runCount}</span>
+                        </td>
+                        <td className="py-3 text-right text-sm">
+                          {units === 'metric' 
+                            ? `${Math.round(week.totalElevation)}m`
+                            : `${Math.round(week.totalElevation * 3.28084)}ft`
+                          }
+                        </td>
+                        <td className="py-3 text-center">
+                          {getWeekStatus(week)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Last Calculation Results - Moved to Bottom */}
+        {calculationStats && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Last Calculation Results
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <div className="font-medium">Weeks Processed</div>
+                  <div className="text-2xl font-bold text-primary">{calculationStats.weeksProcessed}</div>
+                </div>
+                <div>
+                  <div className="font-medium">API Calls</div>
+                  <div className="text-2xl font-bold text-orange-600">{calculationStats.apiCallsMade}</div>
+                </div>
+                <div>
+                  <div className="font-medium">Cache Hits</div>
+                  <div className="text-2xl font-bold text-green-600">{calculationStats.cacheHits}</div>
+                </div>
+                <div>
+                  <div className="font-medium">Status</div>
+                  <div className="text-sm">
+                    {calculationStats.rateLimitReached ? (
+                      <Badge variant="destructive">Rate Limited</Badge>
+                    ) : (
+                      <Badge variant="default">Complete</Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
