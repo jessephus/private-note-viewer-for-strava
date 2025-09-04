@@ -211,6 +211,8 @@ export function PrivateNotesViewer({ accessToken }) {
   const refreshData = async () => {
     console.log('refreshData: Starting data refresh', {
       hasAccessToken: !!accessToken,
+      accessTokenValue: accessToken,
+      accessTokenType: typeof accessToken,
       activitiesCount: activities.length,
       dateRange: {
         from: dateRange.from?.toISOString() || 'null',
@@ -228,7 +230,29 @@ export function PrivateNotesViewer({ accessToken }) {
 
     setIsLoading(true);
     try {
+      console.log('refreshData: Creating StravaAPI instance with token', {
+        tokenLength: accessToken.length,
+        tokenStart: accessToken.substring(0, 10),
+        tokenEnd: accessToken.substring(-10)
+      });
+      
       const stravaAPI = new StravaAPI(accessToken);
+      
+      // Test the API connection first
+      console.log('refreshData: Testing API connection...');
+      try {
+        const athlete = await stravaAPI.getAthlete();
+        console.log('refreshData: API connection successful', {
+          athleteId: athlete?.id,
+          athleteName: athlete?.firstname + ' ' + athlete?.lastname
+        });
+      } catch (testError) {
+        console.error('refreshData: API connection test failed', {
+          error: testError.message,
+          errorType: testError.constructor.name
+        });
+        throw testError;
+      }
       
       // Determine the date range to fetch
       let fetchAfter = null;
@@ -249,6 +273,12 @@ export function PrivateNotesViewer({ accessToken }) {
         console.log('refreshData: No date range specified, fetching recent activities');
       }
 
+      console.log('refreshData: Calling getActivities with parameters', {
+        after: fetchAfter,
+        before: fetchBefore,
+        per_page: 100
+      });
+
       const fetchedActivities = await stravaAPI.getActivities({
         after: fetchAfter,
         before: fetchBefore,
@@ -265,12 +295,57 @@ export function PrivateNotesViewer({ accessToken }) {
         }
       });
 
+      console.log('refreshData: Starting to preload private notes for all activities');
+      
+      // Preload detailed data for all activities to get private notes
+      const detailedActivities = await Promise.all(
+        fetchedActivities.map(async (activity) => {
+          try {
+            // Check cache first
+            const cachedActivity = activityCache.getCachedActivity(activity.id);
+            if (cachedActivity) {
+              console.log('refreshData: Using cached detailed data for activity', {
+                activityId: activity.id,
+                hasPrivateNote: !!cachedActivity.private_note
+              });
+              return cachedActivity;
+            }
+            
+            // Fetch detailed activity data including private notes
+            const detailedActivity = await stravaAPI.getActivity(activity.id);
+            
+            // Cache the detailed data
+            activityCache.setCachedActivity(activity.id, detailedActivity);
+            
+            console.log('refreshData: Loaded detailed data for activity', {
+              activityId: activity.id,
+              hasPrivateNote: !!detailedActivity.private_note,
+              privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
+            });
+            
+            return detailedActivity;
+          } catch (error) {
+            console.warn('refreshData: Failed to load detailed data for activity, using summary', {
+              activityId: activity.id,
+              error: error.message
+            });
+            // Return summary data if detailed fetch fails
+            return activity;
+          }
+        })
+      );
+      
+      console.log('refreshData: Successfully preloaded private notes', {
+        totalActivities: detailedActivities.length,
+        activitiesWithNotes: detailedActivities.filter(a => a.private_note).length
+      });
+
       // Cache the activities
-      fetchedActivities.forEach(activity => {
+      detailedActivities.forEach(activity => {
         activityCache.setCachedActivity(activity.id, activity);
       });
       
-      setActivities(fetchedActivities);
+      setActivities(detailedActivities);
       setIsRealData(true);
       
       // Update the loaded date range
@@ -287,7 +362,7 @@ export function PrivateNotesViewer({ accessToken }) {
         }
       }
       
-      toast.success(`Loaded ${fetchedActivities.length} activities from Strava`);
+      toast.success(`Loaded ${detailedActivities.length} activities with private notes from Strava`);
       
     } catch (error) {
       console.error('refreshData: Failed to load activities', {
@@ -471,15 +546,24 @@ export function PrivateNotesViewer({ accessToken }) {
     console.log('useEffect: Initial data load triggered', {
       hasAccessToken: !!accessToken,
       activitiesCount: activities.length,
+      isRealData,
       timestamp: new Date().toISOString()
     });
     
-    // Load demo data if no access token
-    if (!accessToken && activities.length === 0) {
-      console.log('useEffect: No access token, loading demo data');
-      loadDemoData();
-    }
-  }, [accessToken]);
+    const loadInitialData = async () => {
+      if (accessToken) {
+        // If we have an access token, always fetch real data
+        console.log('useEffect: Access token available, fetching real data');
+        await refreshData();
+      } else if (activities.length === 0) {
+        // Only load demo data if no access token and no activities
+        console.log('useEffect: No access token, loading demo data');
+        await loadDemoData();
+      }
+    };
+    
+    loadInitialData();
+  }, [accessToken]); // Removed isRealData from dependencies to avoid redundant calls
 
   // Refresh data when date range changes and we need additional data
   useEffect(() => {

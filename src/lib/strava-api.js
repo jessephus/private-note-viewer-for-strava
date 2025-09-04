@@ -217,20 +217,47 @@ export class StravaAPI {
     return this.makeAuthenticatedRequest('/athlete');
   }
 
-  async getActivities(page = 1, perPage = 30, before = null, after = null) {
-    let params = `page=${page}&per_page=${perPage}`;
+  async getActivities(optionsOrPage = 1, perPage = 30, before = null, after = null) {
+    // Handle both object and individual parameter formats
+    let page, actualPerPage, actualBefore, actualAfter;
     
-    if (before) {
-      // Convert date to Unix timestamp
-      const beforeTimestamp = Math.floor(new Date(before).getTime() / 1000);
+    if (typeof optionsOrPage === 'object' && optionsOrPage !== null) {
+      // Object format: getActivities({ page: 1, per_page: 30, before: timestamp, after: timestamp })
+      const options = optionsOrPage;
+      page = options.page || 1;
+      actualPerPage = options.per_page || 30;
+      actualBefore = options.before;
+      actualAfter = options.after;
+    } else {
+      // Individual parameter format: getActivities(page, perPage, before, after)
+      page = optionsOrPage;
+      actualPerPage = perPage;
+      actualBefore = before;
+      actualAfter = after;
+    }
+    
+    let params = `page=${page}&per_page=${actualPerPage}`;
+    
+    if (actualBefore) {
+      // If it's already a Unix timestamp, use it directly; otherwise convert
+      const beforeTimestamp = typeof actualBefore === 'number' ? actualBefore : Math.floor(new Date(actualBefore).getTime() / 1000);
       params += `&before=${beforeTimestamp}`;
     }
     
-    if (after) {
-      // Convert date to Unix timestamp
-      const afterTimestamp = Math.floor(new Date(after).getTime() / 1000);
+    if (actualAfter) {
+      // If it's already a Unix timestamp, use it directly; otherwise convert
+      const afterTimestamp = typeof actualAfter === 'number' ? actualAfter : Math.floor(new Date(actualAfter).getTime() / 1000);
       params += `&after=${afterTimestamp}`;
     }
+    
+    console.log('StravaAPI.getActivities: Making request with params', {
+      page,
+      per_page: actualPerPage,
+      before: actualBefore,
+      after: actualAfter,
+      paramsString: params,
+      hasAccessToken: !!this.accessToken
+    });
     
     return this.makeAuthenticatedRequest(
       `/athlete/activities?${params}`
