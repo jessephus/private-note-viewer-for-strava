@@ -317,17 +317,110 @@ export function PrivateNotesViewer({ accessToken }) {
       });
 
       // Use smart cache to get complete activity data with minimal API calls
-      const currentSmartCache = smartCache || new SmartActivityCache(accessToken);
-      const detailedActivities = await currentSmartCache.loadActivitiesWithPrivateNotes(summaryActivities);
+      let detailedActivities = [];
+      let useSimpleFallback = false;
       
-      console.log('refreshData: Smart cache loading complete', {
-        totalActivities: detailedActivities.length,
-        activitiesWithNotes: detailedActivities.filter(a => a.private_note).length
-      });
+      // Check if we should use simple fallback (for testing/debugging)
+      const urlParams = new URLSearchParams(window.location.search);
+      const forceSimple = urlParams.get('simple') === 'true';
+      
+      if (forceSimple) {
+        console.log('refreshData: Using simple fallback due to URL parameter');
+        useSimpleFallback = true;
+      }
+      
+      if (!useSimpleFallback) {
+        const currentSmartCache = smartCache || new SmartActivityCache(accessToken);
+        
+        try {
+          console.log('refreshData: Starting smart cache loading...');
+          detailedActivities = await currentSmartCache.loadActivitiesWithPrivateNotes(summaryActivities);
+          console.log('refreshData: Smart cache loading complete', {
+            inputSummaries: summaryActivities.length,
+            outputDetailed: detailedActivities.length,
+            activitiesWithNotes: detailedActivities.filter(a => a.private_note).length
+          });
+          
+          // Check if smart cache failed to return reasonable results
+          if (detailedActivities.length === 0 && summaryActivities.length > 0) {
+            console.warn('refreshData: Smart cache returned no results, switching to simple fallback');
+            useSimpleFallback = true;
+          }
+          
+        } catch (smartCacheError) {
+          console.error('refreshData: Smart cache failed, falling back to direct API calls', {
+            error: smartCacheError.message,
+            stack: smartCacheError.stack,
+            summaryCount: summaryActivities.length
+          });
+          useSimpleFallback = true;
+        }
+      }
+      
+      if (useSimpleFallback) {
+        console.log('refreshData: Using simple fallback - direct API calls for each activity');
+        
+        // Simple approach: fetch each activity individually
+        detailedActivities = [];
+        const maxActivities = Math.min(summaryActivities.length, 50); // Limit to avoid hitting rate limits
+        
+        for (let i = 0; i < maxActivities; i++) {
+          const activity = summaryActivities[i];
+          try {
+            console.log(`refreshData: Fetching activity ${i + 1}/${maxActivities}`, {
+              activityId: activity.id,
+              name: activity.name
+            });
+            
+            const detailedActivity = await stravaAPI.getActivity(activity.id);
+            detailedActivities.push(detailedActivity);
+            
+            console.log('refreshData: Successfully fetched activity', {
+              activityId: activity.id,
+              hasPrivateNote: !!detailedActivity.private_note
+            });
+            
+            // Small delay to be gentle on the API
+            if (i < maxActivities - 1) {
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+            
+          } catch (activityError) {
+            console.warn('refreshData: Failed to fetch detailed data for activity', {
+              activityId: activity.id,
+              error: activityError.message
+            });
+            detailedActivities.push(activity); // Use summary data as fallback
+          }
+        }
+        
+        console.log('refreshData: Simple fallback complete', {
+          totalActivities: detailedActivities.length,
+          activitiesWithNotes: detailedActivities.filter(a => a.private_note).length
+        });
+      }
 
       // Get cache statistics
-      const stats = await currentSmartCache.getStats();
-      setCacheStats(stats);
+      let stats = null;
+      if (!useSimpleFallback) {
+        try {
+          const currentSmartCache = smartCache || new SmartActivityCache(accessToken);
+          stats = await currentSmartCache.getStats();
+          setCacheStats(stats);
+        } catch (statsError) {
+          console.warn('refreshData: Failed to get cache stats', statsError);
+        }
+      }
+      
+      console.log('refreshData: Setting activities state', {
+        activitiesCount: detailedActivities.length,
+        useSimpleFallback,
+        sampleActivity: detailedActivities[0] ? {
+          id: detailedActivities[0].id,
+          name: detailedActivities[0].name,
+          hasPrivateNote: !!detailedActivities[0].private_note
+        } : null
+      });
       
       setActivities(detailedActivities);
       setIsRealData(true);
@@ -337,8 +430,8 @@ export function PrivateNotesViewer({ accessToken }) {
         setLoadedDateRange({ from: dateRange.from, to: dateRange.to });
       } else {
         // If no specific range was requested, set the range based on fetched data
-        if (fetchedActivities.length > 0) {
-          const dates = fetchedActivities.map(a => new Date(a.start_date));
+        if (detailedActivities.length > 0) {
+          const dates = detailedActivities.map(a => new Date(a.start_date));
           setLoadedDateRange({
             from: new Date(Math.min(...dates)),
             to: new Date(Math.max(...dates))
@@ -347,14 +440,21 @@ export function PrivateNotesViewer({ accessToken }) {
       }
       
       // Show success message with cache efficiency info
-      const apiCallsMade = stats?.session?.apiCalls || 0;
-      const cacheHits = stats?.session?.cacheHits || 0;
-      const hitRate = stats?.session?.hitRate || 0;
-      
-      toast.success(
-        `Loaded ${detailedActivities.length} activities! Cache efficiency: ${hitRate}% (${apiCallsMade} API calls, ${cacheHits} cache hits)`,
-        { duration: 5000 }
-      );
+      if (useSimpleFallback) {
+        toast.success(
+          `Loaded ${detailedActivities.length} activities using direct API calls`,
+          { duration: 5000 }
+        );
+      } else {
+        const apiCallsMade = stats?.session?.apiCalls || 0;
+        const cacheHits = stats?.session?.cacheHits || 0;
+        const hitRate = stats?.session?.hitRate || 0;
+        
+        toast.success(
+          `Loaded ${detailedActivities.length} activities! Cache efficiency: ${hitRate}% (${apiCallsMade} API calls, ${cacheHits} cache hits)`,
+          { duration: 5000 }
+        );
+      }
       
     } catch (error) {
       console.error('refreshData: Failed to load activities', {

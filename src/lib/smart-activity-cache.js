@@ -164,22 +164,54 @@ export class SmartActivityCache {
       summaryCount: summaryActivities.length
     });
 
+    if (!summaryActivities || summaryActivities.length === 0) {
+      console.log('SmartActivityCache: No summary activities provided');
+      return [];
+    }
+
     const activityIds = summaryActivities.map(a => a.id);
     
     // Check which activities we already have cached
-    const missingIds = await this.database.getMissingActivityIds(activityIds);
+    let missingIds = [];
+    let cachedActivities = [];
+    
+    try {
+      missingIds = await this.database.getMissingActivityIds(activityIds);
+      console.log('SmartActivityCache: Database check complete', {
+        total: activityIds.length,
+        missing: missingIds.length
+      });
+    } catch (dbError) {
+      console.error('SmartActivityCache: Database check failed, treating all as missing', {
+        error: dbError.message
+      });
+      missingIds = activityIds; // Treat all as missing if database fails
+    }
     
     console.log('SmartActivityCache: Cache analysis complete', {
       total: activityIds.length,
       cached: activityIds.length - missingIds.length,
       missing: missingIds.length,
-      cacheHitRate: Math.round(((activityIds.length - missingIds.length) / activityIds.length) * 100) + '%'
+      cacheHitRate: activityIds.length > 0 ? Math.round(((activityIds.length - missingIds.length) / activityIds.length) * 100) + '%' : '0%'
     });
 
     // Get all cached activities
-    const cachedActivities = await this.database.getActivities(
-      activityIds.filter(id => !missingIds.includes(id))
-    );
+    try {
+      if (missingIds.length < activityIds.length) {
+        const cachedIds = activityIds.filter(id => !missingIds.includes(id));
+        cachedActivities = await this.database.getActivities(cachedIds);
+        console.log('SmartActivityCache: Retrieved cached activities', {
+          requested: cachedIds.length,
+          retrieved: cachedActivities.length
+        });
+      }
+    } catch (dbError) {
+      console.error('SmartActivityCache: Failed to retrieve cached activities', {
+        error: dbError.message
+      });
+      cachedActivities = [];
+      missingIds = activityIds; // Treat all as missing if we can't get cached ones
+    }
 
     // Create a map for easy lookup
     const activityMap = new Map();
@@ -188,63 +220,75 @@ export class SmartActivityCache {
       this.memoryCache.set(String(activity.id), activity); // Store in memory cache too
     });
 
+    console.log('SmartActivityCache: Activity map initialized', {
+      mapSize: activityMap.size,
+      missingToFetch: missingIds.length
+    });
+
     // Fetch missing activities from API (if we have token)
     if (this.accessToken && missingIds.length > 0) {
       console.log('SmartActivityCache: Fetching missing activities from API', {
-        count: missingIds.length
+        count: missingIds.length,
+        sampleIds: missingIds.slice(0, 3)
       });
 
       const stravaAPI = new StravaAPI(this.accessToken);
       
-      // Batch fetch with concurrency limit to avoid rate limiting
-      const batchSize = 5; // Conservative batch size
-      const batches = [];
-      for (let i = 0; i < missingIds.length; i += batchSize) {
-        batches.push(missingIds.slice(i, i + batchSize));
-      }
-
-      for (const batch of batches) {
-        const batchPromises = batch.map(async (id) => {
+      // Use a simpler approach: fetch all missing activities individually
+      // This is more reliable than complex batching
+      for (const id of missingIds) {
+        try {
+          this.apiCallCount++;
+          console.log('SmartActivityCache: Fetching activity', { 
+            activityId: id,
+            progress: `${missingIds.indexOf(id) + 1}/${missingIds.length}`
+          });
+          
+          const activity = await stravaAPI.getActivity(id);
+          
+          // Store in database (with error handling)
           try {
-            this.apiCallCount++;
-            const activity = await stravaAPI.getActivity(id);
             await this.storeActivity(activity);
-            activityMap.set(String(activity.id), activity);
-            
-            console.log('SmartActivityCache: Fetched and cached activity', {
-              activityId: id,
-              hasPrivateNote: !!activity.private_note
-            });
-            
-            return activity;
-          } catch (error) {
-            console.warn('SmartActivityCache: Failed to fetch activity', { 
+          } catch (storeError) {
+            console.warn('SmartActivityCache: Failed to store in database', { 
               activityId: id, 
-              error: error.message 
+              error: storeError.message 
             });
-            // Use summary data as fallback
-            const summaryActivity = summaryActivities.find(a => String(a.id) === String(id));
-            if (summaryActivity) {
-              activityMap.set(String(id), summaryActivity);
-              return summaryActivity;
-            }
-            return null;
           }
-        });
-
-        // Wait for current batch before starting next
-        await Promise.all(batchPromises);
-        
-        // Small delay between batches to be gentle on the API
-        if (batches.indexOf(batch) < batches.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          activityMap.set(String(activity.id), activity);
+          
+          console.log('SmartActivityCache: Successfully fetched activity', {
+            activityId: id,
+            hasPrivateNote: !!activity.private_note,
+            name: activity.name
+          });
+          
+        } catch (error) {
+          console.warn('SmartActivityCache: Failed to fetch activity', { 
+            activityId: id, 
+            error: error.message 
+          });
+          
+          // Use summary data as fallback
+          const summaryActivity = summaryActivities.find(a => String(a.id) === String(id));
+          if (summaryActivity) {
+            console.log('SmartActivityCache: Using summary data as fallback', { activityId: id });
+            activityMap.set(String(id), summaryActivity);
+          }
         }
       }
     } else {
+      console.log('SmartActivityCache: No API access or no missing activities', {
+        hasToken: !!this.accessToken,
+        missingCount: missingIds.length
+      });
+      
       // No token or no missing activities - use summary data for missing ones
       missingIds.forEach(id => {
         const summaryActivity = summaryActivities.find(a => String(a.id) === String(id));
         if (summaryActivity) {
+          console.log('SmartActivityCache: Using summary data for missing activity', { activityId: id });
           activityMap.set(String(id), summaryActivity);
         }
       });
@@ -252,11 +296,18 @@ export class SmartActivityCache {
 
     // Return activities in original order
     const result = activityIds
-      .map(id => activityMap.get(String(id)))
+      .map(id => {
+        const activity = activityMap.get(String(id));
+        if (!activity) {
+          console.warn('SmartActivityCache: Missing activity in final result', { activityId: id });
+        }
+        return activity;
+      })
       .filter(activity => activity !== undefined);
 
     console.log('SmartActivityCache: Smart loading complete', {
-      totalActivities: result.length,
+      inputSummaries: summaryActivities.length,
+      outputActivities: result.length,
       withPrivateNotes: result.filter(a => a.private_note).length,
       apiCallsMade: this.apiCallCount,
       cacheHits: this.cacheHitCount
