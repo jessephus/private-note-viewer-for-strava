@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { AuthLanding } from '@/components/AuthLanding';
-import { Dashboard } from '@/components/Dashboard';
+import { MainLayout } from '@/components/MainLayout';
+import { PrivateNotesViewer } from '@/components/PrivateNotesViewer';
+import { WeeklyMileageTracker } from '@/components/WeeklyMileageTracker';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { StravaAPI } from '@/lib/strava-api';
@@ -10,6 +12,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useLocalStorage('strava-authenticated', false);
   const [accessToken, setAccessToken] = useLocalStorage('strava-access-token', null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentModule, setCurrentModule] = useState('private-notes');
 
   useEffect(() => {
     // Check for OAuth callback
@@ -150,6 +153,17 @@ function App() {
     toast.success('Successfully logged out');
   };
 
+  const renderCurrentModule = () => {
+    switch (currentModule) {
+      case 'private-notes':
+        return <PrivateNotesViewer accessToken={accessToken} />;
+      case 'weekly-mileage':
+        return <WeeklyMileageTracker />;
+      default:
+        return <PrivateNotesViewer accessToken={accessToken} />;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -161,7 +175,13 @@ function App() {
   return (
     <>
       {isAuthenticated ? (
-        <Dashboard onLogout={handleLogout} accessToken={accessToken} />
+        <MainLayout 
+          onLogout={handleLogout} 
+          currentModule={currentModule}
+          onModuleChange={setCurrentModule}
+        >
+          {renderCurrentModule()}
+        </MainLayout>
       ) : (
         <AuthLanding onAuthSuccess={handleAuthSuccess} />
       )}
