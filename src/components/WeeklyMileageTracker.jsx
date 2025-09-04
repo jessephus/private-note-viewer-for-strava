@@ -13,6 +13,7 @@ import {
   Mountain,
   Play,
   Pause,
+  RefreshCw,
   Database,
   CheckCircle,
   XCircle
