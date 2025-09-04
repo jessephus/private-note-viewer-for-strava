@@ -226,39 +226,57 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
       .sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
   };
 
-  const groupWeeksBy4WeekPeriods = (weeks) => {
-    const periods = [];
-    const sortedWeeks = [...weeks].sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+  const processWeeksForChart = (weeks) => {
+    return weeks.map(week => {
+      const weekStart = new Date(week.weekStart);
+      
+      return {
+        weekStart: week.weekStart,
+        weekLabel: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        distance: units === 'metric' ? week.totalDistance / 1000 : week.totalDistance / 1609.34, // km or miles
+        time: week.totalTime / 3600, // hours
+        elevation: units === 'metric' ? week.totalElevation : week.totalElevation * 3.28084, // m or ft
+        isComplete: week.isComplete
+      };
+    });
+  };
+
+  const generateXAxisLabels = (weeks) => {
+    if (weeks.length === 0) return [];
     
-    for (let i = 0; i < sortedWeeks.length; i += 4) {
-      const periodWeeks = sortedWeeks.slice(i, i + 4);
-      if (periodWeeks.length === 0) continue;
+    const firstWeek = new Date(weeks[0].weekStart);
+    const lastWeek = new Date(weeks[weeks.length - 1].weekStart);
+    const totalDays = (lastWeek - firstWeek) / (1000 * 60 * 60 * 24);
+    
+    // Generate 6 evenly spaced labels across the time range
+    const labels = [];
+    for (let i = 0; i < 6; i++) {
+      const labelDate = new Date(firstWeek);
+      labelDate.setDate(labelDate.getDate() + (totalDays * i / 5));
       
-      const firstWeek = periodWeeks[0];
-      const lastWeek = periodWeeks[periodWeeks.length - 1];
+      // Snap to beginning of month for cleaner labels
+      labelDate.setDate(1);
       
-      // Calculate totals for the period
-      const totalDistance = periodWeeks.reduce((sum, w) => sum + w.totalDistance, 0);
-      const totalTime = periodWeeks.reduce((sum, w) => sum + w.totalTime, 0);
-      const totalElevation = periodWeeks.reduce((sum, w) => sum + w.totalElevation, 0);
+      const monthLabel = labelDate.toLocaleDateString('en-US', { 
+        month: 'short', 
+        year: chartTimeRange === '2years' ? '2-digit' : undefined 
+      });
       
-      // Create period label (month/year of the middle of the period)
-      const midDate = new Date(firstWeek.weekStart);
-      midDate.setDate(midDate.getDate() + 14); // roughly middle of 4-week period
-      const periodLabel = midDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      
-      periods.push({
-        period: periodLabel,
-        distance: units === 'metric' ? totalDistance / 1000 : totalDistance / 1609.34, // km or miles
-        time: totalTime / 3600, // hours
-        elevation: units === 'metric' ? totalElevation : totalElevation * 3.28084, // m or ft
-        weekStart: firstWeek.weekStart,
-        weekEnd: lastWeek.weekEnd,
-        weekCount: periodWeeks.length
+      labels.push({
+        date: labelDate.toISOString().split('T')[0],
+        label: monthLabel
       });
     }
     
-    return periods;
+    // Remove duplicates and sort
+    const uniqueLabels = labels.reduce((acc, curr) => {
+      if (!acc.find(l => l.label === curr.label)) {
+        acc.push(curr);
+      }
+      return acc;
+    }, []);
+    
+    return uniqueLabels;
   };
 
   const calculateRollingAverage = (data, windowSize, metric) => {
@@ -291,9 +309,9 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
 
   const chartData = useMemo(() => {
     const filteredWeeks = getTimeRangeWeeks();
-    const groupedData = groupWeeksBy4WeekPeriods(filteredWeeks);
+    const weeklyChartData = processWeeksForChart(filteredWeeks);
     
-    let processedData = [...groupedData];
+    let processedData = [...weeklyChartData];
     
     // Add rolling averages
     if (showRollingAvg1 && rollingAverage1 > 0) {
@@ -305,6 +323,11 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
     
     return processedData;
   }, [weeklyData, chartTimeRange, chartMetric, showRollingAvg1, showRollingAvg2, rollingAverage1, rollingAverage2, units]);
+
+  const xAxisLabels = useMemo(() => {
+    const filteredWeeks = getTimeRangeWeeks();
+    return generateXAxisLabels(filteredWeeks);
+  }, [weeklyData, chartTimeRange]);
 
   const averages = calculateAverages();
 
@@ -560,8 +583,33 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
                       <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis 
-                          dataKey="period" 
+                          dataKey="weekStart"
                           fontSize={12}
+                          tick={false}
+                          axisLine={true}
+                          tickLine={false}
+                        />
+                        <XAxis 
+                          xAxisId="labels"
+                          dataKey="weekStart"
+                          fontSize={11}
+                          tick={{ fontSize: 11 }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={(value) => {
+                            const date = new Date(value);
+                            const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+                            const isFirstOfMonth = Math.abs(date - monthStart) < 7 * 24 * 60 * 60 * 1000; // within a week of month start
+                            
+                            if (isFirstOfMonth) {
+                              return date.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                year: chartTimeRange === '2years' ? '2-digit' : undefined 
+                              });
+                            }
+                            return '';
+                          }}
+                          interval={0}
                         />
                         <YAxis 
                           fontSize={12}
@@ -572,7 +620,14 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
                             typeof value === 'number' ? value.toFixed(2) : value,
                             name
                           ]}
-                          labelFormatter={(label) => `Period: ${label}`}
+                          labelFormatter={(label) => {
+                            const date = new Date(label);
+                            return `Week of ${date.toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}`;
+                          }}
                         />
                         <Legend />
                         
@@ -603,7 +658,7 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
                             strokeWidth={2}
                             strokeDasharray="5 5"
                             dot={{ r: 2 }}
-                            name={`${rollingAverage1}-period avg`}
+                            name={`${rollingAverage1}-week avg`}
                           />
                         )}
                         
@@ -615,7 +670,7 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
                             strokeWidth={2}
                             strokeDasharray="3 3"
                             dot={{ r: 2 }}
-                            name={`${rollingAverage2}-period avg`}
+                            name={`${rollingAverage2}-week avg`}
                           />
                         )}
                       </ComposedChart>
