@@ -15,6 +15,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentModule, setCurrentModule] = useState('private-notes');
   const [smartCache, setSmartCache] = useState(null);
+  const [apiStatus, setApiStatus] = useState('available');
 
     // Debug: Log initial state
   console.log('App: Initial state', {
@@ -180,6 +181,33 @@ function App() {
     toast.success('Welcome to Strava Connect!');
   };
 
+  // Monitor API status
+  useEffect(() => {
+    if (!accessToken) return;
+
+    const checkApiStatus = async () => {
+      try {
+        const api = new StravaAPI(accessToken);
+        // Try a lightweight API call to check status
+        await api.getAthleteProfile();
+        setApiStatus('available');
+      } catch (error) {
+        console.error('API status check failed:', error);
+        if (error.message.includes('rate') || error.status === 429) {
+          setApiStatus('rate-limited');
+        } else {
+          setApiStatus('error');
+        }
+      }
+    };
+
+    // Check status immediately and then every 30 seconds
+    checkApiStatus();
+    const interval = setInterval(checkApiStatus, 30000);
+
+    return () => clearInterval(interval);
+  }, [accessToken]);
+
   const handleLogout = () => {
     console.log('handleLogout: User logout initiated', {
       wasAuthenticated: isAuthenticated,
@@ -222,6 +250,7 @@ function App() {
           onLogout={handleLogout} 
           currentModule={currentModule}
           onModuleChange={setCurrentModule}
+          apiStatus={apiStatus}
         >
           {renderCurrentModule()}
         </MainLayout>

@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   CalendarDays, 
   TrendingUp, 
@@ -11,7 +13,6 @@ import {
   Mountain,
   Play,
   Pause,
-  RefreshCw,
   Database,
   CheckCircle,
   XCircle
@@ -21,7 +22,8 @@ import { WeeklyMileageDatabase } from '@/lib/weekly-mileage-database';
 import { formatDistance, formatDuration } from '@/lib/strava-api';
 import { toast } from 'sonner';
 
-export function WeeklyMileageTracker({ accessToken, smartCache, units = 'metric' }) {
+export function WeeklyMileageTracker({ accessToken, smartCache }) {
+  const [units, setUnits] = useState('imperial'); // Default to imperial
   const [weeklyData, setWeeklyData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -29,6 +31,7 @@ export function WeeklyMileageTracker({ accessToken, smartCache, units = 'metric'
   const [databaseStats, setDatabaseStats] = useState(null);
   const [calculator, setCalculator] = useState(null);
   const [database] = useState(new WeeklyMileageDatabase());
+  const [hasAutoStarted, setHasAutoStarted] = useState(false);
 
   // Initialize calculator when dependencies are ready
   useEffect(() => {
@@ -44,6 +47,29 @@ export function WeeklyMileageTracker({ accessToken, smartCache, units = 'metric'
     loadWeeklyData();
     loadDatabaseStats();
   }, []);
+
+  // Auto-start calculation when calculator is ready
+  useEffect(() => {
+    if (calculator && !hasAutoStarted && !isCalculating) {
+      console.log('WeeklyMileageTracker: Auto-starting calculation');
+      setHasAutoStarted(true);
+      startCalculation();
+    }
+  }, [calculator, hasAutoStarted, isCalculating]);
+
+  // Auto-refresh data every 5 seconds during calculation
+  useEffect(() => {
+    let interval;
+    if (isCalculating) {
+      interval = setInterval(() => {
+        loadWeeklyData();
+        loadDatabaseStats();
+      }, 5000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isCalculating]);
 
   const loadWeeklyData = async () => {
     try {
@@ -171,33 +197,29 @@ export function WeeklyMileageTracker({ accessToken, smartCache, units = 'metric'
             Track your weekly running distance with smart caching
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={loadWeeklyData}
-            variant="outline"
-            size="sm"
-            disabled={isLoading}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button
-            onClick={startCalculation}
-            disabled={isCalculating || !calculator}
-            className="bg-orange-600 hover:bg-orange-700"
-          >
-            {isCalculating ? (
-              <>
-                <Pause className="w-4 h-4 mr-2" />
-                Calculating...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                Calculate Mileage
-              </>
-            )}
-          </Button>
+        <div className="flex items-center gap-4">
+          {/* Units Toggle */}
+          <div className="flex items-center space-x-2">
+            <Label htmlFor="units-toggle" className="text-sm font-medium">
+              Metric
+            </Label>
+            <Switch
+              id="units-toggle"
+              checked={units === 'imperial'}
+              onCheckedChange={(checked) => setUnits(checked ? 'imperial' : 'metric')}
+            />
+            <Label htmlFor="units-toggle" className="text-sm font-medium">
+              Imperial
+            </Label>
+          </div>
+          
+          {/* Calculation Status */}
+          {isCalculating && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+              Calculating...
+            </div>
+          )}
         </div>
       </div>
 
@@ -331,8 +353,8 @@ export function WeeklyMileageTracker({ accessToken, smartCache, units = 'metric'
           ) : weeklyData.length === 0 ? (
             <div className="text-center py-8">
               <CalendarDays className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground">No weekly data available</p>
-              <p className="text-sm text-muted-foreground">Click "Calculate Mileage" to get started</p>
+              <p className="text-muted-foreground">No weekly data available yet</p>
+              <p className="text-sm text-muted-foreground">Calculation will start automatically...</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
