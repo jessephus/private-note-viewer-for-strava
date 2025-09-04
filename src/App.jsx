@@ -7,12 +7,17 @@ import { WeeklyMileageTracker } from '@/components/WeeklyMileageTracker';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { StravaAPI } from '@/lib/strava-api';
+import { SmartActivityCache } from '@/lib/smart-activity-cache';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useLocalStorage('strava-authenticated', false);
   const [accessToken, setAccessToken] = useLocalStorage('strava-access-token', null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentModule, setCurrentModule] = useState('private-notes');
+  const [smartCache, setSmartCache] = useState(null);
+  const [apiStatus, setApiStatus] = useState('available');
+  const [apiStatusDetails, setApiStatusDetails] = useState(null);
+  const [lastApiActivity, setLastApiActivity] = useState(null);
 
     // Debug: Log initial state
   console.log('App: Initial state', {
@@ -24,6 +29,56 @@ function App() {
     currentModule,
     timestamp: new Date().toISOString()
   });
+
+  // Function to update API status from actual API calls
+  const updateApiStatus = (success, error = null) => {
+    const now = Date.now();
+    setLastApiActivity(now);
+    
+    if (success) {
+      setApiStatus('available');
+      setApiStatusDetails(null);
+    } else if (error) {
+      if (error.status === 429 || error.message.includes('rate') || error.message.includes('429')) {
+        setApiStatus('rate-limited');
+        setApiStatusDetails({
+          type: 'rate-limited',
+          message: 'API rate limit exceeded',
+          statusCode: error.status,
+          details: error.message
+        });
+      } else {
+        setApiStatus('error');
+        setApiStatusDetails({
+          type: 'error',
+          message: error.message || 'Unknown API error',
+          statusCode: error.status || 'Unknown',
+          details: `${error.status ? `HTTP ${error.status}: ` : ''}${error.message || 'Unknown error occurred'}`
+        });
+      }
+    }
+  };
+
+  // Initialize smart cache when access token is available
+  useEffect(() => {
+    if (accessToken && !smartCache) {
+      console.log('App: Initializing shared smart cache');
+      const initializeSmartCache = async () => {
+        try {
+          const cache = new SmartActivityCache(accessToken, updateApiStatus);
+          await cache.database.initPromise;
+          setSmartCache(cache);
+          console.log('App: Shared smart cache initialized');
+        } catch (error) {
+          console.error('App: Failed to initialize shared smart cache', error);
+        }
+      };
+      initializeSmartCache();
+    } else if (!accessToken && smartCache) {
+      console.log('App: Clearing shared smart cache');
+      setSmartCache(null);
+    }
+  }, [accessToken, smartCache, updateApiStatus]);
 
   useEffect(() => {
     const handleAuthFlow = async () => {
@@ -157,6 +212,42 @@ function App() {
     toast.success('Welcome to Strava Connect!');
   };
 
+  // Monitor API status with intelligent frequency
+  useEffect(() => {
+    if (!accessToken) return;
+
+    const checkApiStatus = async () => {
+      const now = Date.now();
+      const fifteenMinutes = 15 * 60 * 1000; // 15 minutes in milliseconds
+      
+      // Only make a test call if it's been more than 15 minutes since last API activity
+      if (lastApiActivity && (now - lastApiActivity) < fifteenMinutes) {
+        console.log('API status check: Skipping test call, recent activity detected', {
+          timeSinceLastActivity: Math.round((now - lastApiActivity) / 1000 / 60),
+          minutesUntilNextCheck: Math.round((fifteenMinutes - (now - lastApiActivity)) / 1000 / 60)
+        });
+        return;
+      }
+
+      console.log('API status check: Making test call to verify API status');
+      try {
+        const api = new StravaAPI(accessToken);
+        // Try a lightweight API call to check status
+        await api.getAthlete();
+        updateApiStatus(true);
+      } catch (error) {
+        console.error('API status check failed:', error);
+        updateApiStatus(false, error);
+      }
+    };
+
+    // Check status immediately and then every 5 minutes (but actual calls limited by 15-minute rule)
+    checkApiStatus();
+    const interval = setInterval(checkApiStatus, 5 * 60 * 1000); // Check every 5 minutes
+
+    return () => clearInterval(interval);
+  }, [accessToken, lastApiActivity]);
+
   const handleLogout = () => {
     console.log('handleLogout: User logout initiated', {
       wasAuthenticated: isAuthenticated,
@@ -176,11 +267,23 @@ function App() {
   const renderCurrentModule = () => {
     switch (currentModule) {
       case 'private-notes':
-        return <PrivateNotesViewer accessToken={accessToken} />;
+        return <PrivateNotesViewer 
+          accessToken={accessToken} 
+          smartCache={smartCache} 
+          updateApiStatus={updateApiStatus}
+        />;
       case 'weekly-mileage':
-        return <WeeklyMileageTracker />;
+        return <WeeklyMileageTracker 
+          accessToken={accessToken} 
+          smartCache={smartCache}
+          updateApiStatus={updateApiStatus}
+        />;
       default:
-        return <PrivateNotesViewer accessToken={accessToken} />;
+        return <PrivateNotesViewer 
+          accessToken={accessToken} 
+          smartCache={smartCache}
+          updateApiStatus={updateApiStatus}
+        />;
     }
   };
 
@@ -199,6 +302,8 @@ function App() {
           onLogout={handleLogout} 
           currentModule={currentModule}
           onModuleChange={setCurrentModule}
+          apiStatus={apiStatus}
+          apiStatusDetails={apiStatusDetails}
         >
           {renderCurrentModule()}
         </MainLayout>

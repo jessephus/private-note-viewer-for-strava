@@ -11,10 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Activity, TrendingUp, User, RefreshCw, TableProperties, Database } from 'lucide-react';
 import { formatDistance, formatDuration, formatSpeed, formatElevation, StravaAPI } from '@/lib/strava-api';
-import { SmartActivityCache } from '@/lib/smart-activity-cache';
 import { toast } from 'sonner';
 
-export function PrivateNotesViewer({ accessToken }) {
+export function PrivateNotesViewer({ accessToken, smartCache }) {
   // Debug: Log accessToken
   console.log('PrivateNotesViewer: Received accessToken', {
     hasToken: !!accessToken,
@@ -45,8 +44,7 @@ export function PrivateNotesViewer({ accessToken }) {
   // Track the date range of currently loaded activities
   const [loadedDateRange, setLoadedDateRange] = useState({ from: null, to: null });
   
-  // Smart cache for efficient API usage and private notes
-  const [smartCache, setSmartCache] = useState(null);
+  // Cache stats for display
   const [cacheStats, setCacheStats] = useState(null);
 
   // Filtered activities based on current filters
@@ -682,28 +680,22 @@ export function PrivateNotesViewer({ accessToken }) {
     setDateRange(newRange);
   };
 
-  // Initialize smart cache when access token is available
+  // Load cache stats when smartCache is available
   useEffect(() => {
-    if (accessToken && !smartCache) {
-      console.log('useEffect: Initializing smart cache with access token');
-      const initializeSmartCache = async () => {
+    if (smartCache) {
+      const loadStats = async () => {
         try {
-          const cache = new SmartActivityCache(accessToken);
-          // Wait for database to be initialized
-          await cache.database.initPromise;
-          setSmartCache(cache);
-          console.log('useEffect: Smart cache initialized and database ready');
+          const stats = await smartCache.getCacheStats();
+          setCacheStats(stats);
         } catch (error) {
-          console.error('useEffect: Failed to initialize smart cache', error);
+          console.error('Failed to load cache stats:', error);
         }
       };
-      initializeSmartCache();
-    } else if (!accessToken && smartCache) {
-      console.log('useEffect: Clearing smart cache due to missing access token');
-      setSmartCache(null);
+      loadStats();
+    } else {
       setCacheStats(null);
     }
-  }, [accessToken, smartCache]);
+  }, [smartCache]);
 
   // Load initial data
   useEffect(() => {
