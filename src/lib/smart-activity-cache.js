@@ -8,12 +8,13 @@ import { activityDatabase } from './activity-database';
 import { StravaAPI } from './strava-api';
 
 export class SmartActivityCache {
-  constructor(accessToken) {
+  constructor(accessToken, updateApiStatusCallback = null) {
     this.accessToken = accessToken;
     this.memoryCache = new Map(); // Fast memory cache for current session
     this.database = activityDatabase;
     this.apiCallCount = 0;
     this.cacheHitCount = 0;
+    this.updateApiStatus = updateApiStatusCallback;
   }
 
   /**
@@ -59,12 +60,22 @@ export class SmartActivityCache {
         const stravaAPI = new StravaAPI(this.accessToken);
         const activity = await stravaAPI.getActivity(id);
         
+        // Report successful API call
+        if (this.updateApiStatus) {
+          this.updateApiStatus(true);
+        }
+        
         // Store in both caches
         await this.storeActivity(activity);
         
         return activity;
       } catch (error) {
         console.error('SmartActivityCache: API fetch failed', { activityId: id, error });
+        
+        // Report failed API call
+        if (this.updateApiStatus) {
+          this.updateApiStatus(false, error);
+        }
       }
     }
 
@@ -131,11 +142,23 @@ export class SmartActivityCache {
         try {
           this.apiCallCount++;
           const activity = await stravaAPI.getActivity(id);
+          
+          // Report successful API call
+          if (this.updateApiStatus) {
+            this.updateApiStatus(true);
+          }
+          
           await this.storeActivity(activity);
           results.set(id, activity);
           return activity;
         } catch (error) {
           console.warn('SmartActivityCache: Failed to fetch activity', { activityId: id, error });
+          
+          // Report failed API call
+          if (this.updateApiStatus) {
+            this.updateApiStatus(false, error);
+          }
+          
           return null;
         }
       });
@@ -246,6 +269,11 @@ export class SmartActivityCache {
           
           const activity = await stravaAPI.getActivity(id);
           
+          // Report successful API call
+          if (this.updateApiStatus) {
+            this.updateApiStatus(true);
+          }
+          
           // Store in database (with error handling)
           try {
             await this.storeActivity(activity);
@@ -269,6 +297,11 @@ export class SmartActivityCache {
             activityId: id, 
             error: error.message 
           });
+          
+          // Report failed API call
+          if (this.updateApiStatus) {
+            this.updateApiStatus(false, error);
+          }
           
           // Use summary data as fallback
           const summaryActivity = summaryActivities.find(a => String(a.id) === String(id));
