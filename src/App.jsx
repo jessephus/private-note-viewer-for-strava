@@ -7,12 +7,14 @@ import { WeeklyMileageTracker } from '@/components/WeeklyMileageTracker';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { StravaAPI } from '@/lib/strava-api';
+import { SmartActivityCache } from '@/lib/smart-activity-cache';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useLocalStorage('strava-authenticated', false);
   const [accessToken, setAccessToken] = useLocalStorage('strava-access-token', null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentModule, setCurrentModule] = useState('private-notes');
+  const [smartCache, setSmartCache] = useState(null);
 
     // Debug: Log initial state
   console.log('App: Initial state', {
@@ -24,6 +26,27 @@ function App() {
     currentModule,
     timestamp: new Date().toISOString()
   });
+
+  // Initialize smart cache when access token is available
+  useEffect(() => {
+    if (accessToken && !smartCache) {
+      console.log('App: Initializing shared smart cache');
+      const initializeSmartCache = async () => {
+        try {
+          const cache = new SmartActivityCache(accessToken);
+          await cache.database.initPromise;
+          setSmartCache(cache);
+          console.log('App: Shared smart cache initialized');
+        } catch (error) {
+          console.error('App: Failed to initialize shared smart cache', error);
+        }
+      };
+      initializeSmartCache();
+    } else if (!accessToken && smartCache) {
+      console.log('App: Clearing shared smart cache');
+      setSmartCache(null);
+    }
+  }, [accessToken, smartCache]);
 
   useEffect(() => {
     const handleAuthFlow = async () => {
@@ -176,11 +199,11 @@ function App() {
   const renderCurrentModule = () => {
     switch (currentModule) {
       case 'private-notes':
-        return <PrivateNotesViewer accessToken={accessToken} />;
+        return <PrivateNotesViewer accessToken={accessToken} smartCache={smartCache} />;
       case 'weekly-mileage':
-        return <WeeklyMileageTracker />;
+        return <WeeklyMileageTracker accessToken={accessToken} smartCache={smartCache} />;
       default:
-        return <PrivateNotesViewer accessToken={accessToken} />;
+        return <PrivateNotesViewer accessToken={accessToken} smartCache={smartCache} />;
     }
   };
 
