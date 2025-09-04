@@ -308,12 +308,36 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
   };
 
   const chartData = useMemo(() => {
-    const filteredWeeks = getTimeRangeWeeks();
-    const weeklyChartData = processWeeksForChart(filteredWeeks);
+    // Get the maximum rolling average window size to determine how much extra historical data we need
+    const maxRollingWindow = Math.max(
+      showRollingAvg1 ? rollingAverage1 : 0,
+      showRollingAvg2 ? rollingAverage2 : 0
+    );
     
-    let processedData = [...weeklyChartData];
+    // Get extended data that includes historical weeks for rolling average calculation
+    const now = new Date();
+    const weeksBack = {
+      '6months': 26,
+      '1year': 52,
+      '2years': 104
+    }[chartTimeRange];
     
-    // Add rolling averages
+    // Add extra weeks for rolling average context
+    const totalWeeksNeeded = weeksBack + maxRollingWindow;
+    const extendedCutoffDate = new Date(now);
+    extendedCutoffDate.setDate(extendedCutoffDate.getDate() - (totalWeeksNeeded * 7));
+    
+    // Get all data including historical context
+    const allRelevantWeeks = weeklyData
+      .filter(week => new Date(week.weekStart) >= extendedCutoffDate)
+      .sort((a, b) => new Date(a.weekStart) - new Date(b.weekStart));
+    
+    // Process all weeks for chart format
+    const allProcessedWeeks = processWeeksForChart(allRelevantWeeks);
+    
+    // Calculate rolling averages on the extended dataset
+    let processedData = [...allProcessedWeeks];
+    
     if (showRollingAvg1 && rollingAverage1 > 0) {
       processedData = calculateRollingAverage(processedData, rollingAverage1, chartMetric);
     }
@@ -321,7 +345,15 @@ export function WeeklyMileageTracker({ accessToken, smartCache }) {
       processedData = calculateRollingAverage(processedData, rollingAverage2, chartMetric);
     }
     
-    return processedData;
+    // Now filter to only the visible range for display
+    const visibleCutoffDate = new Date(now);
+    visibleCutoffDate.setDate(visibleCutoffDate.getDate() - (weeksBack * 7));
+    
+    const visibleData = processedData.filter(week => 
+      new Date(week.weekStart) >= visibleCutoffDate
+    );
+    
+    return visibleData;
   }, [weeklyData, chartTimeRange, chartMetric, showRollingAvg1, showRollingAvg2, rollingAverage1, rollingAverage2, units]);
 
   const xAxisLabels = useMemo(() => {
