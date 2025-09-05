@@ -58,7 +58,7 @@ class WeeklyMileageCalculator {
 
       let currentWeek = lastCompleteWeekStart;
       let weeksBack = 0;
-      const maxWeeksBack = 52; // Don't go back more than a year
+      const maxWeeksBack = 52*3; // Don't go back more than 3 years
 
       while (weeksBack < maxWeeksBack && !this.calculationStats.rateLimitReached) {
         const weekId = this.weeklyDatabase.getWeekId(currentWeek);
