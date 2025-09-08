@@ -1,23 +1,23 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
-import { ActivityCard } from './ActivityCard';
-import { ActivityTable } from './ActivityTable';
-import { ActivityFilters } from './ActivityFilters';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Activity, TrendingUp, User, RefreshCw, TableProperties, Database } from 'lucide-react';
-import { formatDistance, formatDuration, formatSpeed, formatElevation, StravaAPI } from '@/lib/strava-api';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { StravaAPI, formatDistance, formatDuration, formatElevation, formatSpeed } from '@/lib/strava-api';
+import { Activity, Database, RefreshCw, TableProperties, TrendingUp, User } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ActivityCard } from './ActivityCard';
+import { ActivityFilters } from './ActivityFilters';
+import { ActivityTable } from './ActivityTable';
 
 export function PrivateNotesViewer({ accessToken, smartCache }) {
   // Debug: Log accessToken
   console.log('PrivateNotesViewer: Received accessToken', {
     hasToken: !!accessToken,
-    tokenPreview: accessToken ? accessToken.substring(0, 8) + '...' : 'null'
+    tokenPreview: accessToken ? accessToken.substring(0, 8) + '...' : 'null',
   });
 
   const [activities, setActivities] = useLocalStorage('strava-activities', []);
@@ -28,22 +28,22 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
   const [isRealData, setIsRealData] = useLocalStorage('strava-real-data', false);
   const [units, setUnits] = useLocalStorage('strava-units', 'metric');
   const [viewMode, setViewMode] = useLocalStorage('strava-view-mode', 'table');
-  
+
   // Filter states
   const [filters, setFilters] = useState({
     activityType: 'all',
     minDistance: '',
     maxDistance: '',
     titleKeywords: '',
-    notesKeywords: ''
+    notesKeywords: '',
   });
-  
+
   // Date range for filtering and fetching
   const [dateRange, setDateRange] = useState({ from: null, to: null });
-  
+
   // Track the date range of currently loaded activities
   const [loadedDateRange, setLoadedDateRange] = useState({ from: null, to: null });
-  
+
   // Cache stats for display
   const [cacheStats, setCacheStats] = useState(null);
 
@@ -53,44 +53,45 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
 
     // Filter by activity type
     if (filters.activityType && filters.activityType !== 'all') {
-      filtered = filtered.filter(activity => 
-        activity.type.toLowerCase() === filters.activityType.toLowerCase()
-      );
+      filtered = filtered.filter((activity) => activity.type.toLowerCase() === filters.activityType.toLowerCase());
     }
 
     // Filter by distance range
     if (filters.minDistance) {
-      const minDistanceMeters = parseFloat(filters.minDistance) * (units === 'metric' ? 1000 : 1609.34);
-      filtered = filtered.filter(activity => activity.distance >= minDistanceMeters);
+      const minDistanceMeters = Number.parseFloat(filters.minDistance) * (units === 'metric' ? 1000 : 1609.34);
+      filtered = filtered.filter((activity) => activity.distance >= minDistanceMeters);
     }
     if (filters.maxDistance) {
-      const maxDistanceMeters = parseFloat(filters.maxDistance) * (units === 'metric' ? 1000 : 1609.34);
-      filtered = filtered.filter(activity => activity.distance <= maxDistanceMeters);
+      const maxDistanceMeters = Number.parseFloat(filters.maxDistance) * (units === 'metric' ? 1000 : 1609.34);
+      filtered = filtered.filter((activity) => activity.distance <= maxDistanceMeters);
     }
 
     // Filter by title keywords
     if (filters.titleKeywords) {
-      const keywords = filters.titleKeywords.toLowerCase().split(' ').filter(k => k.length > 0);
-      filtered = filtered.filter(activity => 
-        keywords.every(keyword => 
-          activity.name.toLowerCase().includes(keyword)
-        )
+      const keywords = filters.titleKeywords
+        .toLowerCase()
+        .split(' ')
+        .filter((k) => k.length > 0);
+      filtered = filtered.filter((activity) =>
+        keywords.every((keyword) => activity.name.toLowerCase().includes(keyword)),
       );
     }
 
     // Filter by notes keywords
     if (filters.notesKeywords) {
-      const keywords = filters.notesKeywords.toLowerCase().split(' ').filter(k => k.length > 0);
-      filtered = filtered.filter(activity => 
-        activity.private_note && keywords.every(keyword => 
-          activity.private_note.toLowerCase().includes(keyword)
-        )
+      const keywords = filters.notesKeywords
+        .toLowerCase()
+        .split(' ')
+        .filter((k) => k.length > 0);
+      filtered = filtered.filter(
+        (activity) =>
+          activity.private_note && keywords.every((keyword) => activity.private_note.toLowerCase().includes(keyword)),
       );
     }
 
     // Filter by date range if set
     if (dateRange.from && dateRange.to) {
-      filtered = filtered.filter(activity => {
+      filtered = filtered.filter((activity) => {
         const activityDate = new Date(activity.start_date);
         return activityDate >= dateRange.from && activityDate <= dateRange.to;
       });
@@ -101,7 +102,7 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
 
   // Available activity types for filter dropdown
   const availableActivityTypes = useMemo(() => {
-    const types = [...new Set(activities.map(activity => activity.type))];
+    const types = [...new Set(activities.map((activity) => activity.type))];
     return types.sort();
   }, [activities]);
 
@@ -110,19 +111,19 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
     const totalDistance = filteredActivities.reduce((sum, activity) => sum + (activity.distance || 0), 0);
     const totalTime = filteredActivities.reduce((sum, activity) => sum + (activity.moving_time || 0), 0);
     const totalElevation = filteredActivities.reduce((sum, activity) => sum + (activity.total_elevation_gain || 0), 0);
-    
+
     return {
       totalDistance,
       totalTime,
       totalElevation,
-      totalActivities: filteredActivities.length
+      totalActivities: filteredActivities.length,
     };
   }, [filteredActivities]);
 
   // Activity type breakdown for statistics
   const activityTypeStats = useMemo(() => {
     const typeStats = {};
-    filteredActivities.forEach(activity => {
+    filteredActivities.forEach((activity) => {
       if (!typeStats[activity.type]) {
         typeStats[activity.type] = { count: 0, distance: 0 };
       }
@@ -135,75 +136,79 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
   // Helper function to determine if we need to fetch more data
   const needsAdditionalData = useMemo(() => {
     if (!dateRange.from || !dateRange.to) return false;
-    
+
     // Convert to date-only format for comparison
     const requestedRange = {
       from: new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate()),
-      to: new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate())
+      to: new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate()),
     };
-    
+
     const loadedRange = {
-      from: loadedDateRange.from ? new Date(loadedDateRange.from.getFullYear(), loadedDateRange.from.getMonth(), loadedDateRange.from.getDate()) : null,
-      to: loadedDateRange.to ? new Date(loadedDateRange.to.getFullYear(), loadedDateRange.to.getMonth(), loadedDateRange.to.getDate()) : null
+      from: loadedDateRange.from
+        ? new Date(loadedDateRange.from.getFullYear(), loadedDateRange.from.getMonth(), loadedDateRange.from.getDate())
+        : null,
+      to: loadedDateRange.to
+        ? new Date(loadedDateRange.to.getFullYear(), loadedDateRange.to.getMonth(), loadedDateRange.to.getDate())
+        : null,
     };
-    
+
     console.log('needsAdditionalData: Checking if additional data needed', {
       requestedRange: {
         from: requestedRange.from.toISOString().split('T')[0],
-        to: requestedRange.to.toISOString().split('T')[0]
+        to: requestedRange.to.toISOString().split('T')[0],
       },
       loadedRange: {
         from: loadedRange.from?.toISOString().split('T')[0] || 'null',
-        to: loadedRange.to?.toISOString().split('T')[0] || 'null'
-      }
+        to: loadedRange.to?.toISOString().split('T')[0] || 'null',
+      },
     });
-    
+
     // Check if we need earlier data (requestedRange.from < loadedRange.from)
     const needsEarlierData = !loadedRange.from || requestedRange.from < loadedRange.from;
-    
-    // Check if we need later data (requestedRange.to > loadedRange.to)  
+
+    // Check if we need later data (requestedRange.to > loadedRange.to)
     const needsLaterData = !loadedRange.to || requestedRange.to > loadedRange.to;
-    
+
     const needsData = needsEarlierData || needsLaterData;
-    
+
     console.log('needsAdditionalData: Analysis result', {
       needsEarlierData,
       needsLaterData,
-      needsData
+      needsData,
     });
-    
+
     // If we have cached activities, check if they cover the requested range
     if (!needsData && activities.length > 0) {
       // Find the date range of cached activities
-      const cachedDates = activities.map(activity => new Date(activity.start_date));
+      const cachedDates = activities.map((activity) => new Date(activity.start_date));
       const cachedMinDate = new Date(Math.min(...cachedDates));
       const cachedMaxDate = new Date(Math.max(...cachedDates));
-      
+
       // Check if cached activities cover the requested range
       const cacheCoversRange = requestedRange.from >= cachedMinDate && requestedRange.to <= cachedMaxDate;
-      
+
       console.log('needsAdditionalData: Checking cache coverage', {
         requestedRange: {
           from: requestedRange.from.toISOString(),
-          to: requestedRange.to.toISOString()
+          to: requestedRange.to.toISOString(),
         },
         loadedRange: {
           from: loadedDateRange.from.toISOString(),
-          to: loadedDateRange.to.toISOString()
+          to: loadedDateRange.to.toISOString(),
         },
         cachedRange: {
           from: cachedMinDate.toISOString(),
-          to: cachedMaxDate.toISOString()
+          to: cachedMaxDate.toISOString(),
         },
         cachedActivitiesCount: activities.length,
         cacheCoversRange,
         needsEarlierData,
-        needsLaterData
+        needsLaterData,
       });
-      
+
       return !cacheCoversRange;
     }
-    
+
     return needsData;
   }, [dateRange, loadedDateRange, activities]);
 
@@ -214,11 +219,11 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
       activitiesCount: activities.length,
       dateRange: {
         from: dateRange.from?.toISOString() || 'null',
-        to: dateRange.to?.toISOString() || 'null'
+        to: dateRange.to?.toISOString() || 'null',
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     if (!accessToken) {
       console.log('refreshData: No access token, loading demo data');
       await loadDemoData();
@@ -232,18 +237,18 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
     }
 
     setIsLoading(true);
-    
+
     try {
       // STEP 1: Load all cached activities immediately
       console.log('refreshData: Step 1 - Loading all cached activities from smart cache');
       let allCachedActivities = [];
-      
+
       try {
         await smartCache.database.initPromise; // Ensure database is ready
         allCachedActivities = await smartCache.database.getAllActivities();
         console.log('refreshData: All cached activities loaded', {
           totalCachedCount: allCachedActivities.length,
-          withPrivateNotes: allCachedActivities.filter(a => a.private_note).length
+          withPrivateNotes: allCachedActivities.filter((a) => a.private_note).length,
         });
       } catch (cacheError) {
         console.warn('refreshData: Failed to load cached activities', cacheError);
@@ -253,18 +258,18 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
       // STEP 2: Filter cached activities by selected date range (if any)
       let relevantCachedActivities = allCachedActivities;
       if (dateRange.from && dateRange.to) {
-        relevantCachedActivities = allCachedActivities.filter(activity => {
+        relevantCachedActivities = allCachedActivities.filter((activity) => {
           const activityDate = new Date(activity.start_date);
           return activityDate >= dateRange.from && activityDate <= dateRange.to;
         });
-        
+
         console.log('refreshData: Filtered cached activities by date range', {
           totalCached: allCachedActivities.length,
           withinDateRange: relevantCachedActivities.length,
           dateRange: {
             from: dateRange.from.toISOString(),
-            to: dateRange.to.toISOString()
-          }
+            to: dateRange.to.toISOString(),
+          },
         });
       } else {
         console.log('refreshData: No date range filter, using all cached activities');
@@ -274,8 +279,10 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
       if (relevantCachedActivities.length > 0) {
         setActivities(relevantCachedActivities);
         setIsRealData(true);
-        
-        toast.success(`Showing ${relevantCachedActivities.length} cached activities${dateRange.from ? ' for selected date range' : ''}`);
+
+        toast.success(
+          `Showing ${relevantCachedActivities.length} cached activities${dateRange.from ? ' for selected date range' : ''}`,
+        );
       } else if (dateRange.from && dateRange.to) {
         // No cached activities in the selected range
         setActivities([]);
@@ -287,34 +294,34 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
       let shouldFetchFromAPI = false;
       let fetchAfter = null;
       let fetchBefore = null;
-      
+
       if (dateRange.from && dateRange.to) {
         // User has selected a specific date range - check API for that range
         fetchAfter = Math.floor(dateRange.from.getTime() / 1000);
         fetchBefore = Math.floor(dateRange.to.getTime() / 1000);
         shouldFetchFromAPI = true;
-        
+
         console.log('refreshData: Will fetch API data for selected date range', {
           from: dateRange.from.toISOString(),
           to: dateRange.to.toISOString(),
           afterUnix: fetchAfter,
-          beforeUnix: fetchBefore
+          beforeUnix: fetchBefore,
         });
       } else {
         // No specific date range selected - use smart recent data logic
         const now = new Date();
-        const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
-        
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
         // Check what's the most recent activity in cache
         let mostRecentCached = null;
         if (allCachedActivities.length > 0) {
           const sortedByDate = allCachedActivities.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
           mostRecentCached = new Date(sortedByDate[0].start_date);
         }
-        
+
         console.log('refreshData: Analyzing cache coverage for recent data', {
           mostRecentCached: mostRecentCached?.toISOString() || 'none',
-          thirtyDaysAgo: thirtyDaysAgo.toISOString()
+          thirtyDaysAgo: thirtyDaysAgo.toISOString(),
         });
 
         if (!mostRecentCached) {
@@ -334,7 +341,7 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
             shouldFetchFromAPI = true;
             fetchAfter = Math.floor(mostRecentCached.getTime() / 1000);
             console.log('refreshData: Checking for new activities since last cached', {
-              daysSinceLastCached: daysSinceLastCached.toFixed(1)
+              daysSinceLastCached: daysSinceLastCached.toFixed(1),
             });
           } else {
             console.log('refreshData: Cache is up to date, no API calls needed');
@@ -348,11 +355,11 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
           console.log('refreshData: Step 4 - Fetching activities from API', {
             fetchAfter: fetchAfter ? new Date(fetchAfter * 1000).toISOString() : 'none',
             fetchBefore: fetchBefore ? new Date(fetchBefore * 1000).toISOString() : 'none',
-            isDateRangeQuery: !!(dateRange.from && dateRange.to)
+            isDateRangeQuery: !!(dateRange.from && dateRange.to),
           });
-          
+
           const stravaAPI = new StravaAPI(accessToken);
-          
+
           // Test API connection
           try {
             await stravaAPI.getAthlete();
@@ -371,64 +378,69 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
           const apiActivities = await stravaAPI.getActivities({
             after: fetchAfter,
             before: fetchBefore,
-            per_page: 200 // Fetch more for date range queries
+            per_page: 200, // Fetch more for date range queries
           });
-          
+
           console.log('refreshData: API activities fetched', {
             apiCount: apiActivities.length,
-            dateRange: apiActivities.length > 0 ? {
-              earliest: new Date(Math.min(...apiActivities.map(a => new Date(a.start_date)))).toISOString(),
-              latest: new Date(Math.max(...apiActivities.map(a => new Date(a.start_date)))).toISOString()
-            } : null
+            dateRange:
+              apiActivities.length > 0
+                ? {
+                    earliest: new Date(Math.min(...apiActivities.map((a) => new Date(a.start_date)))).toISOString(),
+                    latest: new Date(Math.max(...apiActivities.map((a) => new Date(a.start_date)))).toISOString(),
+                  }
+                : null,
           });
 
           if (apiActivities.length > 0) {
             // Filter out activities we already have cached
-            const cachedIds = new Set(allCachedActivities.map(a => a.id));
-            const newActivities = apiActivities.filter(a => !cachedIds.has(a.id));
-            
+            const cachedIds = new Set(allCachedActivities.map((a) => a.id));
+            const newActivities = apiActivities.filter((a) => !cachedIds.has(a.id));
+
             console.log('refreshData: Filtering new activities', {
               totalFromAPI: apiActivities.length,
               alreadyCached: apiActivities.length - newActivities.length,
-              newActivities: newActivities.length
+              newActivities: newActivities.length,
             });
 
             if (newActivities.length > 0) {
               // Use smart cache to efficiently get detailed data for new activities
               const detailedNewActivities = await smartCache.loadActivitiesWithPrivateNotes(newActivities);
-              
+
               console.log('refreshData: New activities processed', {
                 newDetailedCount: detailedNewActivities.length,
-                withPrivateNotes: detailedNewActivities.filter(a => a.private_note).length
+                withPrivateNotes: detailedNewActivities.filter((a) => a.private_note).length,
               });
 
               // Combine new activities with relevant cached activities
               const combinedActivities = [...relevantCachedActivities, ...detailedNewActivities];
-              
+
               // If we have a date range, filter the combined results
               let finalActivities = combinedActivities;
               if (dateRange.from && dateRange.to) {
-                finalActivities = combinedActivities.filter(activity => {
+                finalActivities = combinedActivities.filter((activity) => {
                   const activityDate = new Date(activity.start_date);
                   return activityDate >= dateRange.from && activityDate <= dateRange.to;
                 });
               }
-              
+
               // Sort by date (newest first)
               finalActivities.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
-              
+
               setActivities(finalActivities);
-              
+
               // Update loaded date range
               if (finalActivities.length > 0) {
-                const allDates = finalActivities.map(a => new Date(a.start_date));
+                const allDates = finalActivities.map((a) => new Date(a.start_date));
                 setLoadedDateRange({
                   from: new Date(Math.min(...allDates)),
-                  to: new Date(Math.max(...allDates))
+                  to: new Date(Math.max(...allDates)),
                 });
               }
-              
-              toast.success(`Found ${detailedNewActivities.length} new activities from API! Total: ${finalActivities.length}`);
+
+              toast.success(
+                `Found ${detailedNewActivities.length} new activities from API! Total: ${finalActivities.length}`,
+              );
             } else {
               // All API activities were already cached
               if (dateRange.from && dateRange.to) {
@@ -445,13 +457,12 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
               toast.info('No new activities found in Strava');
             }
           }
-          
         } catch (apiError) {
           console.warn('refreshData: API fetch failed, using cached data only', {
             error: apiError.message,
-            hasCachedData: relevantCachedActivities.length > 0
+            hasCachedData: relevantCachedActivities.length > 0,
           });
-          
+
           if (relevantCachedActivities.length > 0) {
             toast.info('API temporarily unavailable, showing cached activities');
           } else {
@@ -467,35 +478,34 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
       } catch (statsError) {
         console.warn('refreshData: Failed to get cache stats', statsError);
       }
-      
     } catch (error) {
       console.error('refreshData: Failed to load activities', {
         error: error.message,
         errorType: error.constructor.name,
         stack: error.stack,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       // Final fallback: try to load from smart cache database directly
       if (smartCache && smartCache.database) {
         try {
           console.log('refreshData: Trying direct database access as final fallback');
           await smartCache.database.initPromise;
           const fallbackActivities = await smartCache.database.getAllActivities();
-          
+
           if (fallbackActivities && fallbackActivities.length > 0) {
             // Filter by date range if specified
             let filteredFallback = fallbackActivities;
             if (dateRange.from && dateRange.to) {
-              filteredFallback = fallbackActivities.filter(activity => {
+              filteredFallback = fallbackActivities.filter((activity) => {
                 const activityDate = new Date(activity.start_date);
                 return activityDate >= dateRange.from && activityDate <= dateRange.to;
               });
             }
-            
+
             console.log('refreshData: Loaded from database fallback', {
               total: fallbackActivities.length,
-              filtered: filteredFallback.length
+              filtered: filteredFallback.length,
             });
             setActivities(filteredFallback);
             setIsRealData(true);
@@ -506,12 +516,11 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
           console.warn('refreshData: Database fallback failed', fallbackError);
         }
       }
-      
+
       // Ultimate fallback: demo data
       console.log('refreshData: Loading demo data as ultimate fallback');
       await loadDemoData();
       toast.error('Failed to load activities. Showing demo data.');
-      
     } finally {
       setIsLoading(false);
     }
@@ -519,7 +528,7 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
 
   const loadDemoData = async () => {
     console.log('loadDemoData: Loading demo data');
-    
+
     const today = new Date();
     const demoActivities = [
       {
@@ -530,8 +539,9 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
         moving_time: 2400, // 40 minutes
         total_elevation_gain: 150,
         start_date: new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
-        private_note: 'Felt great today! Weather was perfect. Maintained steady pace throughout. Need to focus on hydration for longer runs.',
-        average_speed: 3.35
+        private_note:
+          'Felt great today! Weather was perfect. Maintained steady pace throughout. Need to focus on hydration for longer runs.',
+        average_speed: 3.35,
       },
       {
         id: 'demo-2',
@@ -541,8 +551,9 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
         moving_time: 4500, // 75 minutes
         total_elevation_gain: 300,
         start_date: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-        private_note: 'Great ride through the countryside. Encountered headwind on the way back but pushed through. Bike handling feels more confident.',
-        average_speed: 7.15
+        private_note:
+          'Great ride through the countryside. Encountered headwind on the way back but pushed through. Bike handling feels more confident.',
+        average_speed: 7.15,
       },
       {
         id: 'demo-3',
@@ -552,8 +563,8 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
         moving_time: 1800, // 30 minutes
         total_elevation_gain: 50,
         start_date: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-        private_note: 'Easy recovery walk. Legs felt heavy from yesterday\'s workout but good to keep moving.',
-        average_speed: 1.79
+        private_note: "Easy recovery walk. Legs felt heavy from yesterday's workout but good to keep moving.",
+        average_speed: 1.79,
       },
       {
         id: 'demo-4',
@@ -563,8 +574,9 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
         moving_time: 2100, // 35 minutes
         total_elevation_gain: 80,
         start_date: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(), // 4 days ago
-        private_note: 'Tough interval session. 6x800m repeats with 400m recovery. Hit target times on most intervals. Core work after.',
-        average_speed: 3.07
+        private_note:
+          'Tough interval session. 6x800m repeats with 400m recovery. Hit target times on most intervals. Core work after.',
+        average_speed: 3.07,
       },
       {
         id: 'demo-5',
@@ -574,24 +586,25 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
         moving_time: 7200, // 2 hours
         total_elevation_gain: 600,
         start_date: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-        private_note: 'Longest ride of the month! Great scenery and perfect weather. Nutrition strategy worked well - felt strong throughout.',
-        average_speed: 8.94
-      }
+        private_note:
+          'Longest ride of the month! Great scenery and perfect weather. Nutrition strategy worked well - felt strong throughout.',
+        average_speed: 8.94,
+      },
     ];
-    
+
     setActivities(demoActivities);
     setIsRealData(false);
-    
+
     // Set demo date range
-    const demoDates = demoActivities.map(a => new Date(a.start_date));
+    const demoDates = demoActivities.map((a) => new Date(a.start_date));
     setLoadedDateRange({
       from: new Date(Math.min(...demoDates)),
-      to: new Date(Math.max(...demoDates))
+      to: new Date(Math.max(...demoDates)),
     });
-    
+
     console.log('loadDemoData: Demo data loaded', {
       activitiesCount: demoActivities.length,
-      hasPrivateNotes: demoActivities.filter(a => a.private_note).length
+      hasPrivateNotes: demoActivities.filter((a) => a.private_note).length,
     });
   };
 
@@ -599,9 +612,9 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
     console.log('handleActivitySelect: Activity selected', {
       activityId: activity.id,
       activityName: activity.name,
-      hasAccessToken: !!accessToken
+      hasAccessToken: !!accessToken,
     });
-    
+
     setSelectedActivity(activity);
     setSelectedActivityDetails(null);
 
@@ -631,7 +644,7 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
 
       const stravaAPI = new StravaAPI(accessToken);
       const details = await stravaAPI.getActivity(activity.id);
-      
+
       // Cache the detailed data in smart cache
       if (smartCache) {
         try {
@@ -641,21 +654,21 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
           console.warn('handleActivitySelect: Failed to store in smart cache', cacheError);
         }
       }
-      
+
       console.log('handleActivitySelect: Activity details loaded', {
         activityId: activity.id,
         hasPrivateNote: !!details.private_note,
-        privateNoteLength: details.private_note ? details.private_note.length : 0
+        privateNoteLength: details.private_note ? details.private_note.length : 0,
       });
-      
+
       setSelectedActivityDetails(details);
     } catch (error) {
       console.error('handleActivitySelect: Failed to load activity details', {
         activityId: activity.id,
         error: error.message,
-        errorType: error.constructor.name
+        errorType: error.constructor.name,
       });
-      
+
       // Fallback to the activity summary data
       console.log('handleActivitySelect: Using summary data as fallback');
       setSelectedActivityDetails(activity);
@@ -669,14 +682,14 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
     console.log('handleDateRangeChange: Date range changed', {
       oldRange: {
         from: dateRange.from?.toISOString() || 'null',
-        to: dateRange.to?.toISOString() || 'null'
+        to: dateRange.to?.toISOString() || 'null',
       },
       newRange: {
         from: newRange.from?.toISOString() || 'null',
-        to: newRange.to?.toISOString() || 'null'
-      }
+        to: newRange.to?.toISOString() || 'null',
+      },
     });
-    
+
     setDateRange(newRange);
   };
 
@@ -704,9 +717,9 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
       hasSmartCache: !!smartCache,
       activitiesCount: activities.length,
       isRealData,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     const loadInitialData = async () => {
       if (accessToken) {
         // Wait for smart cache to be initialized if access token is available
@@ -722,7 +735,7 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
         await loadDemoData();
       }
     };
-    
+
     loadInitialData();
   }, [accessToken, smartCache]); // Added smartCache dependency
 
@@ -739,15 +752,11 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
     return (
       <div className="container mx-auto p-4">
         <div className="mb-4">
-          <Button 
-            variant="outline" 
-            onClick={() => setSelectedActivity(null)}
-            className="mb-4"
-          >
+          <Button variant="outline" onClick={() => setSelectedActivity(null)} className="mb-4">
             ← Back to Activities
           </Button>
         </div>
-        
+
         <div className="max-w-4xl mx-auto">
           <Card>
             <CardHeader>
@@ -762,7 +771,7 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
-                      day: 'numeric'
+                      day: 'numeric',
                     })}
                   </p>
                 </div>
@@ -864,7 +873,7 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          
+
           {/* Smart Cache Status */}
           {smartCache && cacheStats && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -872,11 +881,7 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
               <span>
                 Cache: {cacheStats.totalActivities} activities, {cacheStats.activitiesWithNotes} with notes
               </span>
-              {cacheStats.session && (
-                <span className="text-xs">
-                  ({cacheStats.session.hitRate}% hit rate)
-                </span>
-              )}
+              {cacheStats.session && <span className="text-xs">({cacheStats.session.hitRate}% hit rate)</span>}
             </div>
           )}
         </div>
@@ -928,7 +933,7 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
             <TabsTrigger value="activities">Recent Activities</TabsTrigger>
             <TabsTrigger value="stats">Statistics</TabsTrigger>
           </TabsList>
-          
+
           {/* View mode toggle for activities tab only */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">View:</span>
@@ -985,18 +990,14 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
                 <Activity className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-semibold mb-2">No activities found</h3>
                 <p className="text-muted-foreground mb-4">
-                  {activities.length === 0 
-                    ? "Click 'Refresh' to load your Strava activities" 
-                    : "Try adjusting your filters or date range"}
+                  {activities.length === 0
+                    ? "Click 'Refresh' to load your Strava activities"
+                    : 'Try adjusting your filters or date range'}
                 </p>
               </CardContent>
             </Card>
           ) : viewMode === 'table' ? (
-            <ActivityTable 
-              activities={filteredActivities} 
-              onActivitySelect={handleActivitySelect}
-              units={units}
-            />
+            <ActivityTable activities={filteredActivities} onActivitySelect={handleActivitySelect} units={units} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredActivities.map((activity) => (
@@ -1023,13 +1024,9 @@ export function PrivateNotesViewer({ accessToken, smartCache }) {
                     <div key={type} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">{type}</Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {stats.count} activities
-                        </span>
+                        <span className="text-sm text-muted-foreground">{stats.count} activities</span>
                       </div>
-                      <div className="text-sm font-medium">
-                        {formatDistance(stats.distance, units)}
-                      </div>
+                      <div className="text-sm font-medium">{formatDistance(stats.distance, units)}</div>
                     </div>
                   ))}
                 </div>

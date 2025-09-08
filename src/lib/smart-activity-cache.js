@@ -23,7 +23,7 @@ export class SmartActivityCache {
    */
   async getActivity(activityId) {
     const id = String(activityId);
-    
+
     // 1. Check memory cache first (fastest)
     if (this.memoryCache.has(id)) {
       this.cacheHitCount++;
@@ -38,9 +38,9 @@ export class SmartActivityCache {
         this.cacheHitCount++;
         // Store in memory cache for next access
         this.memoryCache.set(id, cachedActivity);
-        console.log('SmartActivityCache: Database cache hit', { 
+        console.log('SmartActivityCache: Database cache hit', {
           activityId: id,
-          hasPrivateNote: cachedActivity.has_private_note
+          hasPrivateNote: cachedActivity.has_private_note,
         });
         return cachedActivity;
       }
@@ -52,26 +52,26 @@ export class SmartActivityCache {
     if (this.accessToken) {
       try {
         this.apiCallCount++;
-        console.log('SmartActivityCache: Fetching from API', { 
+        console.log('SmartActivityCache: Fetching from API', {
           activityId: id,
-          apiCallCount: this.apiCallCount 
+          apiCallCount: this.apiCallCount,
         });
-        
+
         const stravaAPI = new StravaAPI(this.accessToken);
         const activity = await stravaAPI.getActivity(id);
-        
+
         // Report successful API call
         if (this.updateApiStatus) {
           this.updateApiStatus(true);
         }
-        
+
         // Store in both caches
         await this.storeActivity(activity);
-        
+
         return activity;
       } catch (error) {
         console.error('SmartActivityCache: API fetch failed', { activityId: id, error });
-        
+
         // Report failed API call
         if (this.updateApiStatus) {
           this.updateApiStatus(false, error);
@@ -88,9 +88,9 @@ export class SmartActivityCache {
    * Get multiple activities with batch optimization
    */
   async getActivities(activityIds) {
-    const ids = activityIds.map(id => String(id));
+    const ids = activityIds.map((id) => String(id));
     const results = new Map();
-    
+
     // 1. Check memory cache for all IDs
     const memoryMisses = [];
     for (const id of ids) {
@@ -117,9 +117,9 @@ export class SmartActivityCache {
         this.memoryCache.set(id, activity); // Cache in memory for next time
         this.cacheHitCount++;
       }
-      
-      const foundInDb = new Set(dbResults.map(a => String(a.id)));
-      dbMisses = memoryMisses.filter(id => !foundInDb.has(id));
+
+      const foundInDb = new Set(dbResults.map((a) => String(a.id)));
+      dbMisses = memoryMisses.filter((id) => !foundInDb.has(id));
     } catch (error) {
       console.warn('SmartActivityCache: Database batch check failed', error);
       dbMisses = memoryMisses;
@@ -134,7 +134,7 @@ export class SmartActivityCache {
     if (this.accessToken && dbMisses.length > 0) {
       console.log('SmartActivityCache: Fetching missing activities from API', {
         missing: dbMisses.length,
-        total: ids.length
+        total: ids.length,
       });
 
       const stravaAPI = new StravaAPI(this.accessToken);
@@ -142,23 +142,23 @@ export class SmartActivityCache {
         try {
           this.apiCallCount++;
           const activity = await stravaAPI.getActivity(id);
-          
+
           // Report successful API call
           if (this.updateApiStatus) {
             this.updateApiStatus(true);
           }
-          
+
           await this.storeActivity(activity);
           results.set(id, activity);
           return activity;
         } catch (error) {
           console.warn('SmartActivityCache: Failed to fetch activity', { activityId: id, error });
-          
+
           // Report failed API call
           if (this.updateApiStatus) {
             this.updateApiStatus(false, error);
           }
-          
+
           return null;
         }
       });
@@ -172,7 +172,7 @@ export class SmartActivityCache {
       found: finalResults.length,
       memoryHits: ids.length - memoryMisses.length,
       databaseHits: memoryMisses.length - dbMisses.length,
-      apiCalls: this.accessToken ? dbMisses.length : 0
+      apiCalls: this.accessToken ? dbMisses.length : 0,
     });
 
     return finalResults;
@@ -184,7 +184,7 @@ export class SmartActivityCache {
    */
   async loadActivitiesWithPrivateNotes(summaryActivities) {
     console.log('SmartActivityCache: Starting smart loading strategy', {
-      summaryCount: summaryActivities.length
+      summaryCount: summaryActivities.length,
     });
 
     if (!summaryActivities || summaryActivities.length === 0) {
@@ -192,45 +192,48 @@ export class SmartActivityCache {
       return [];
     }
 
-    const activityIds = summaryActivities.map(a => a.id);
-    
+    const activityIds = summaryActivities.map((a) => a.id);
+
     // Check which activities we already have cached
     let missingIds = [];
     let cachedActivities = [];
-    
+
     try {
       missingIds = await this.database.getMissingActivityIds(activityIds);
       console.log('SmartActivityCache: Database check complete', {
         total: activityIds.length,
-        missing: missingIds.length
+        missing: missingIds.length,
       });
     } catch (dbError) {
       console.error('SmartActivityCache: Database check failed, treating all as missing', {
-        error: dbError.message
+        error: dbError.message,
       });
       missingIds = activityIds; // Treat all as missing if database fails
     }
-    
+
     console.log('SmartActivityCache: Cache analysis complete', {
       total: activityIds.length,
       cached: activityIds.length - missingIds.length,
       missing: missingIds.length,
-      cacheHitRate: activityIds.length > 0 ? Math.round(((activityIds.length - missingIds.length) / activityIds.length) * 100) + '%' : '0%'
+      cacheHitRate:
+        activityIds.length > 0
+          ? Math.round(((activityIds.length - missingIds.length) / activityIds.length) * 100) + '%'
+          : '0%',
     });
 
     // Get all cached activities
     try {
       if (missingIds.length < activityIds.length) {
-        const cachedIds = activityIds.filter(id => !missingIds.includes(id));
+        const cachedIds = activityIds.filter((id) => !missingIds.includes(id));
         cachedActivities = await this.database.getActivities(cachedIds);
         console.log('SmartActivityCache: Retrieved cached activities', {
           requested: cachedIds.length,
-          retrieved: cachedActivities.length
+          retrieved: cachedActivities.length,
         });
       }
     } catch (dbError) {
       console.error('SmartActivityCache: Failed to retrieve cached activities', {
-        error: dbError.message
+        error: dbError.message,
       });
       cachedActivities = [];
       missingIds = activityIds; // Treat all as missing if we can't get cached ones
@@ -238,73 +241,72 @@ export class SmartActivityCache {
 
     // Create a map for easy lookup
     const activityMap = new Map();
-    cachedActivities.forEach(activity => {
+    cachedActivities.forEach((activity) => {
       activityMap.set(String(activity.id), activity);
       this.memoryCache.set(String(activity.id), activity); // Store in memory cache too
     });
 
     console.log('SmartActivityCache: Activity map initialized', {
       mapSize: activityMap.size,
-      missingToFetch: missingIds.length
+      missingToFetch: missingIds.length,
     });
 
     // Fetch missing activities from API (if we have token)
     if (this.accessToken && missingIds.length > 0) {
       console.log('SmartActivityCache: Fetching missing activities from API', {
         count: missingIds.length,
-        sampleIds: missingIds.slice(0, 3)
+        sampleIds: missingIds.slice(0, 3),
       });
 
       const stravaAPI = new StravaAPI(this.accessToken);
-      
+
       // Use a simpler approach: fetch all missing activities individually
       // This is more reliable than complex batching
       for (const id of missingIds) {
         try {
           this.apiCallCount++;
-          console.log('SmartActivityCache: Fetching activity', { 
+          console.log('SmartActivityCache: Fetching activity', {
             activityId: id,
-            progress: `${missingIds.indexOf(id) + 1}/${missingIds.length}`
+            progress: `${missingIds.indexOf(id) + 1}/${missingIds.length}`,
           });
-          
+
           const activity = await stravaAPI.getActivity(id);
-          
+
           // Report successful API call
           if (this.updateApiStatus) {
             this.updateApiStatus(true);
           }
-          
+
           // Store in database (with error handling)
           try {
             await this.storeActivity(activity);
           } catch (storeError) {
-            console.warn('SmartActivityCache: Failed to store in database', { 
-              activityId: id, 
-              error: storeError.message 
+            console.warn('SmartActivityCache: Failed to store in database', {
+              activityId: id,
+              error: storeError.message,
             });
           }
-          
+
           activityMap.set(String(activity.id), activity);
-          
+
           console.log('SmartActivityCache: Successfully fetched activity', {
             activityId: id,
             hasPrivateNote: !!activity.private_note,
-            name: activity.name
+            name: activity.name,
           });
-          
         } catch (error) {
-          console.warn('SmartActivityCache: Failed to fetch activity', { 
-            activityId: id, 
-            error: error.message 
+          console.warn('SmartActivityCache: Failed to fetch activity', {
+            activityId: id,
+            error: error.message,
           });
-          
+
           // Report failed API call
           if (this.updateApiStatus) {
             this.updateApiStatus(false, error);
           }
-          
+
           // Use summary data as fallback
-          const summaryActivity = summaryActivities.find(a => String(a.id) === String(id));
+          const summaryActivity = summaryActivities.find((a) => String(a.id) === String(id));
           if (summaryActivity) {
             console.log('SmartActivityCache: Using summary data as fallback', { activityId: id });
             activityMap.set(String(id), summaryActivity);
@@ -314,12 +316,12 @@ export class SmartActivityCache {
     } else {
       console.log('SmartActivityCache: No API access or no missing activities', {
         hasToken: !!this.accessToken,
-        missingCount: missingIds.length
+        missingCount: missingIds.length,
       });
-      
+
       // No token or no missing activities - use summary data for missing ones
-      missingIds.forEach(id => {
-        const summaryActivity = summaryActivities.find(a => String(a.id) === String(id));
+      missingIds.forEach((id) => {
+        const summaryActivity = summaryActivities.find((a) => String(a.id) === String(id));
         if (summaryActivity) {
           console.log('SmartActivityCache: Using summary data for missing activity', { activityId: id });
           activityMap.set(String(id), summaryActivity);
@@ -329,21 +331,21 @@ export class SmartActivityCache {
 
     // Return activities in original order
     const result = activityIds
-      .map(id => {
+      .map((id) => {
         const activity = activityMap.get(String(id));
         if (!activity) {
           console.warn('SmartActivityCache: Missing activity in final result', { activityId: id });
         }
         return activity;
       })
-      .filter(activity => activity !== undefined);
+      .filter((activity) => activity !== undefined);
 
     console.log('SmartActivityCache: Smart loading complete', {
       inputSummaries: summaryActivities.length,
       outputActivities: result.length,
-      withPrivateNotes: result.filter(a => a.private_note).length,
+      withPrivateNotes: result.filter((a) => a.private_note).length,
       apiCallsMade: this.apiCallCount,
-      cacheHits: this.cacheHitCount
+      cacheHits: this.cacheHitCount,
     });
 
     return result;
@@ -354,17 +356,17 @@ export class SmartActivityCache {
    */
   async storeActivity(activity) {
     const id = String(activity.id);
-    
+
     // Store in memory cache
     this.memoryCache.set(id, activity);
-    
+
     // Store in persistent database
     try {
       await this.database.storeActivity(activity);
     } catch (error) {
-      console.warn('SmartActivityCache: Failed to store in database', { 
-        activityId: id, 
-        error 
+      console.warn('SmartActivityCache: Failed to store in database', {
+        activityId: id,
+        error,
       });
     }
   }
@@ -374,19 +376,21 @@ export class SmartActivityCache {
    */
   async getStats() {
     const dbStats = await this.database.getStats();
-    
+
     return {
       ...dbStats,
       memoryCache: {
         size: this.memoryCache.size,
-        activities: Array.from(this.memoryCache.values()).length
+        activities: Array.from(this.memoryCache.values()).length,
       },
       session: {
         apiCalls: this.apiCallCount,
         cacheHits: this.cacheHitCount,
-        hitRate: this.cacheHitCount + this.apiCallCount > 0 ? 
-          Math.round((this.cacheHitCount / (this.cacheHitCount + this.apiCallCount)) * 100) : 0
-      }
+        hitRate:
+          this.cacheHitCount + this.apiCallCount > 0
+            ? Math.round((this.cacheHitCount / (this.cacheHitCount + this.apiCallCount)) * 100)
+            : 0,
+      },
     };
   }
 

@@ -1,18 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
-import { useActivityCache } from '@/hooks/use-activity-cache';
-import { ActivityCard } from './ActivityCard';
-import { ActivityTable } from './ActivityTable';
-import { ActivityFilters } from './ActivityFilters';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Activity, TrendingUp, User, LogOut, RefreshCw, TableProperties } from 'lucide-react';
-import { formatDistance, formatDuration, formatSpeed, formatElevation, StravaAPI } from '@/lib/strava-api';
+import { useActivityCache } from '@/hooks/use-activity-cache';
+import { useLocalStorage } from '@/hooks/use-local-storage';
+import { StravaAPI, formatDistance, formatDuration, formatElevation, formatSpeed } from '@/lib/strava-api';
+import { Activity, LogOut, RefreshCw, TableProperties, TrendingUp, User } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ActivityCard } from './ActivityCard';
+import { ActivityFilters } from './ActivityFilters';
+import { ActivityTable } from './ActivityTable';
 
 export function Dashboard({ onLogout, accessToken }) {
   const [activities, setActivities] = useLocalStorage('strava-activities', []);
@@ -23,22 +23,22 @@ export function Dashboard({ onLogout, accessToken }) {
   const [isRealData, setIsRealData] = useLocalStorage('strava-real-data', false);
   const [units, setUnits] = useLocalStorage('strava-units', 'metric');
   const [viewMode, setViewMode] = useLocalStorage('strava-view-mode', 'table');
-  
+
   // Filter states
   const [filters, setFilters] = useState({
     activityType: 'all',
     minDistance: '',
     maxDistance: '',
     titleKeywords: '',
-    notesKeywords: ''
+    notesKeywords: '',
   });
-  
+
   // Date range for filtering and fetching
   const [dateRange, setDateRange] = useState({ from: null, to: null });
-  
+
   // Track the date range of currently loaded activities
   const [loadedDateRange, setLoadedDateRange] = useState({ from: null, to: null });
-  
+
   // Initialize activity cache with 60 minute TTL
   const activityCache = useActivityCache(60);
 
@@ -48,56 +48,55 @@ export function Dashboard({ onLogout, accessToken }) {
 
     // Filter by activity type
     if (filters.activityType && filters.activityType !== 'all') {
-      filtered = filtered.filter(activity => 
-        activity.type === filters.activityType || activity.sport_type === filters.activityType
+      filtered = filtered.filter(
+        (activity) => activity.type === filters.activityType || activity.sport_type === filters.activityType,
       );
     }
 
     // Filter by distance range
     if (filters.minDistance) {
-      const minDistanceM = parseFloat(filters.minDistance) * 1000; // Convert km to meters
-      filtered = filtered.filter(activity => activity.distance >= minDistanceM);
+      const minDistanceM = Number.parseFloat(filters.minDistance) * 1000; // Convert km to meters
+      filtered = filtered.filter((activity) => activity.distance >= minDistanceM);
     }
-    
+
     if (filters.maxDistance) {
-      const maxDistanceM = parseFloat(filters.maxDistance) * 1000; // Convert km to meters
-      filtered = filtered.filter(activity => activity.distance <= maxDistanceM);
+      const maxDistanceM = Number.parseFloat(filters.maxDistance) * 1000; // Convert km to meters
+      filtered = filtered.filter((activity) => activity.distance <= maxDistanceM);
     }
 
     // Filter by title keywords
     if (filters.titleKeywords) {
-      const keywords = filters.titleKeywords.toLowerCase().split(' ').filter(k => k.trim());
-      filtered = filtered.filter(activity => 
-        keywords.some(keyword => 
-          activity.name.toLowerCase().includes(keyword)
-        )
+      const keywords = filters.titleKeywords
+        .toLowerCase()
+        .split(' ')
+        .filter((k) => k.trim());
+      filtered = filtered.filter((activity) =>
+        keywords.some((keyword) => activity.name.toLowerCase().includes(keyword)),
       );
     }
 
     // Filter by notes keywords
     if (filters.notesKeywords) {
-      const keywords = filters.notesKeywords.toLowerCase().split(' ').filter(k => k.trim());
-      filtered = filtered.filter(activity => 
-        activity.private_note && keywords.some(keyword => 
-          activity.private_note.toLowerCase().includes(keyword)
-        )
+      const keywords = filters.notesKeywords
+        .toLowerCase()
+        .split(' ')
+        .filter((k) => k.trim());
+      filtered = filtered.filter(
+        (activity) =>
+          activity.private_note && keywords.some((keyword) => activity.private_note.toLowerCase().includes(keyword)),
       );
     }
 
     // Filter by date range (for display)
     if (dateRange.from) {
-      filtered = filtered.filter(activity => 
-        new Date(activity.start_date) >= dateRange.from
-      );
+      filtered = filtered.filter((activity) => new Date(activity.start_date) >= dateRange.from);
     }
-    
+
     if (dateRange.to) {
       // Set to end of day for the 'to' date
       const endOfDay = new Date(dateRange.to);
       endOfDay.setHours(23, 59, 59, 999);
-      filtered = filtered.filter(activity => 
-        new Date(activity.start_date) <= endOfDay
-      );
+      filtered = filtered.filter((activity) => new Date(activity.start_date) <= endOfDay);
     }
 
     return filtered;
@@ -106,7 +105,7 @@ export function Dashboard({ onLogout, accessToken }) {
   // Get available activity types for filter dropdown
   const availableActivityTypes = useMemo(() => {
     const types = new Set();
-    activities.forEach(activity => {
+    activities.forEach((activity) => {
       types.add(activity.type);
       if (activity.sport_type && activity.sport_type !== activity.type) {
         types.add(activity.sport_type);
@@ -118,7 +117,7 @@ export function Dashboard({ onLogout, accessToken }) {
   // Update loaded date range when activities change
   useEffect(() => {
     if (activities.length > 0) {
-      const dates = activities.map(activity => new Date(activity.start_date));
+      const dates = activities.map((activity) => new Date(activity.start_date));
       const minDate = new Date(Math.min(...dates));
       const maxDate = new Date(Math.max(...dates));
       setLoadedDateRange({ from: minDate, to: maxDate });
@@ -130,11 +129,11 @@ export function Dashboard({ onLogout, accessToken }) {
     if (!requestedRange.from || !requestedRange.to || !loadedDateRange.from || !loadedDateRange.to) {
       return false;
     }
-    
+
     // Check if requested range extends beyond currently loaded data
     const needsEarlierData = requestedRange.from < loadedDateRange.from;
     const needsLaterData = requestedRange.to > loadedDateRange.to;
-    
+
     // If we need earlier or later data, check if we have cached activities that cover the gap
     if (needsEarlierData || needsLaterData) {
       // Get all cached activities to see if they cover the requested range
@@ -142,64 +141,64 @@ export function Dashboard({ onLogout, accessToken }) {
       if (cachedActivities.length === 0) {
         return true; // No cache, need to fetch
       }
-      
+
       // Find the date range of cached activities
-      const cachedDates = cachedActivities.map(activity => new Date(activity.start_date));
+      const cachedDates = cachedActivities.map((activity) => new Date(activity.start_date));
       const cachedMinDate = new Date(Math.min(...cachedDates));
       const cachedMaxDate = new Date(Math.max(...cachedDates));
-      
+
       // Check if cached activities cover the requested range
       const cacheCoversRange = requestedRange.from >= cachedMinDate && requestedRange.to <= cachedMaxDate;
-      
+
       console.log('needsAdditionalData: Checking cache coverage', {
         requestedRange: {
           from: requestedRange.from.toISOString(),
-          to: requestedRange.to.toISOString()
+          to: requestedRange.to.toISOString(),
         },
         loadedRange: {
           from: loadedDateRange.from.toISOString(),
-          to: loadedDateRange.to.toISOString()
+          to: loadedDateRange.to.toISOString(),
         },
         cachedRange: {
           from: cachedMinDate.toISOString(),
-          to: cachedMaxDate.toISOString()
+          to: cachedMaxDate.toISOString(),
         },
         cachedActivitiesCount: cachedActivities.length,
         cacheCoversRange,
         needsEarlierData,
-        needsLaterData
+        needsLaterData,
       });
-      
+
       // If cache covers the range, merge cached activities that fall within the requested range
       if (cacheCoversRange) {
-        const relevantCachedActivities = cachedActivities.filter(activity => {
+        const relevantCachedActivities = cachedActivities.filter((activity) => {
           const activityDate = new Date(activity.start_date);
           return activityDate >= requestedRange.from && activityDate <= requestedRange.to;
         });
-        
+
         if (relevantCachedActivities.length > 0) {
           // Merge cached activities with existing ones
-          const existingIds = new Set(activities.map(a => a.id));
-          const newCachedActivities = relevantCachedActivities.filter(a => !existingIds.has(a.id));
-          
+          const existingIds = new Set(activities.map((a) => a.id));
+          const newCachedActivities = relevantCachedActivities.filter((a) => !existingIds.has(a.id));
+
           if (newCachedActivities.length > 0) {
             console.log('needsAdditionalData: Using cached activities for date range', {
-              newCachedActivitiesCount: newCachedActivities.length
+              newCachedActivitiesCount: newCachedActivities.length,
             });
-            
+
             // Update activities with cached data, sorted by date (newest first)
             const allActivities = [...activities, ...newCachedActivities];
             allActivities.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
-            
+
             setActivities(allActivities);
             toast.success(`Found ${newCachedActivities.length} cached activities for selected date range`);
           }
-          
+
           return false; // No need to fetch from API
         }
       }
     }
-    
+
     return needsEarlierData || needsLaterData;
   };
 
@@ -212,40 +211,40 @@ export function Dashboard({ onLogout, accessToken }) {
     setIsLoading(true);
     try {
       const stravaAPI = new StravaAPI(accessToken);
-      
+
       // Add one day buffer to ensure we get all activities in the range
       const bufferStart = new Date(fromDate);
       bufferStart.setDate(bufferStart.getDate() - 1);
-      
+
       const bufferEnd = new Date(toDate);
       bufferEnd.setDate(bufferEnd.getDate() + 1);
       bufferEnd.setHours(23, 59, 59, 999);
-      
+
       console.log('fetchActivitiesInDateRange: Fetching activities for date range', {
         fromDate: fromDate.toISOString(),
         toDate: toDate.toISOString(),
         bufferStart: bufferStart.toISOString(),
-        bufferEnd: bufferEnd.toISOString()
+        bufferEnd: bufferEnd.toISOString(),
       });
 
       // Fetch activities within the date range (Strava API uses before/after timestamps)
       const newActivities = await stravaAPI.getActivities(1, 200, bufferEnd.toISOString(), bufferStart.toISOString());
-      
+
       console.log('fetchActivitiesInDateRange: Fetched new activities', {
         count: newActivities.length,
         firstDate: newActivities[0]?.start_date,
-        lastDate: newActivities[newActivities.length - 1]?.start_date
+        lastDate: newActivities[newActivities.length - 1]?.start_date,
       });
 
       if (newActivities.length > 0) {
         // Merge with existing activities, removing duplicates
-        const existingIds = new Set(activities.map(a => a.id));
-        const uniqueNewActivities = newActivities.filter(a => !existingIds.has(a.id));
-        
+        const existingIds = new Set(activities.map((a) => a.id));
+        const uniqueNewActivities = newActivities.filter((a) => !existingIds.has(a.id));
+
         console.log('fetchActivitiesInDateRange: Adding unique new activities', {
           uniqueCount: uniqueNewActivities.length,
           totalBefore: activities.length,
-          totalAfter: activities.length + uniqueNewActivities.length
+          totalAfter: activities.length + uniqueNewActivities.length,
         });
 
         if (uniqueNewActivities.length > 0) {
@@ -253,45 +252,45 @@ export function Dashboard({ onLogout, accessToken }) {
           const detailedNewActivities = await Promise.all(
             uniqueNewActivities.map(async (activity) => {
               try {
-                // Check cache first  
+                // Check cache first
                 const cachedActivity = activityCache.getCachedActivity(activity.id);
                 if (cachedActivity) {
                   console.log('fetchActivitiesInDateRange: Using cached detailed data for activity', {
                     activityId: activity.id,
-                    hasPrivateNote: !!cachedActivity.private_note
+                    hasPrivateNote: !!cachedActivity.private_note,
                   });
                   return cachedActivity;
                 }
-                
+
                 const detailedActivity = await stravaAPI.getActivity(activity.id);
                 activityCache.setCachedActivity(activity.id, detailedActivity);
-                
+
                 console.log('fetchActivitiesInDateRange: Loaded detailed data for activity', {
                   activityId: activity.id,
                   hasPrivateNote: !!detailedActivity.private_note,
-                  privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
+                  privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0,
                 });
-                
+
                 return detailedActivity;
               } catch (error) {
                 console.warn('fetchActivitiesInDateRange: Failed to load detailed data for activity', {
                   activityId: activity.id,
-                  error: error.message
+                  error: error.message,
                 });
                 return activity;
               }
-            })
+            }),
           );
 
           console.log('fetchActivitiesInDateRange: Successfully preloaded detailed data for new activities', {
             totalActivities: detailedNewActivities.length,
-            activitiesWithNotes: detailedNewActivities.filter(a => a.private_note).length
+            activitiesWithNotes: detailedNewActivities.filter((a) => a.private_note).length,
           });
 
           // Update activities with new data, sorted by date (newest first)
           const allActivities = [...activities, ...detailedNewActivities];
           allActivities.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
-          
+
           setActivities(allActivities);
           toast.success(`Loaded ${uniqueNewActivities.length} additional activities for selected date range`);
         }
@@ -300,7 +299,7 @@ export function Dashboard({ onLogout, accessToken }) {
       console.error('fetchActivitiesInDateRange: Failed to fetch activities for date range', {
         error: error.message,
         fromDate: fromDate.toISOString(),
-        toDate: toDate.toISOString()
+        toDate: toDate.toISOString(),
       });
       toast.error('Failed to load additional activities for date range');
     } finally {
@@ -311,23 +310,26 @@ export function Dashboard({ onLogout, accessToken }) {
   // Handle date range changes
   const handleDateRangeChange = async (newDateRange) => {
     setDateRange(newDateRange);
-    
+
     // If we have a complete date range and we're using real data, check if we need additional data
     if (newDateRange && newDateRange.from && newDateRange.to && accessToken && isRealData) {
       const needsData = needsAdditionalData(newDateRange);
-      
+
       console.log('handleDateRangeChange: Date range changed', {
         newRange: {
           from: newDateRange.from.toISOString(),
-          to: newDateRange.to.toISOString()
+          to: newDateRange.to.toISOString(),
         },
-        loadedRange: loadedDateRange.from && loadedDateRange.to ? {
-          from: loadedDateRange.from.toISOString(),
-          to: loadedDateRange.to.toISOString()
-        } : null,
-        needsData
+        loadedRange:
+          loadedDateRange.from && loadedDateRange.to
+            ? {
+                from: loadedDateRange.from.toISOString(),
+                to: loadedDateRange.to.toISOString(),
+              }
+            : null,
+        needsData,
       });
-      
+
       if (needsData) {
         await fetchActivitiesInDateRange(newDateRange.from, newDateRange.to);
       }
@@ -338,11 +340,20 @@ export function Dashboard({ onLogout, accessToken }) {
   const generateDemoActivities = () => {
     const types = ['Run', 'Ride', 'Swim', 'Hike'];
     const names = [
-      'Morning Run', 'Evening Ride', 'Lunch Break Run', 'Weekend Long Ride',
-      'Hill Intervals', 'Recovery Swim', 'Trail Run', 'Commute Ride',
-      'Speed Work', 'Base Building Run', 'Mountain Hike', 'Track Session'
+      'Morning Run',
+      'Evening Ride',
+      'Lunch Break Run',
+      'Weekend Long Ride',
+      'Hill Intervals',
+      'Recovery Swim',
+      'Trail Run',
+      'Commute Ride',
+      'Speed Work',
+      'Base Building Run',
+      'Mountain Hike',
+      'Track Session',
     ];
-    
+
     const privateNotes = [
       'Felt really strong today! Weather was perfect and I maintained a good pace throughout.',
       'Struggled a bit with the hills but pushed through. Need to work on climbing strength.',
@@ -355,7 +366,7 @@ export function Dashboard({ onLogout, accessToken }) {
       null,
       'Base building week - keeping effort sustainable. Good consistency.',
       'Challenging hike but the views were worth it! Met some friendly hikers.',
-      null
+      null,
     ];
 
     return Array.from({ length: 12 }, (_, i) => ({
@@ -405,28 +416,28 @@ export function Dashboard({ onLogout, accessToken }) {
     console.log('loadRealData: Starting to load real Strava data', {
       hasToken: !!accessToken,
       tokenPrefix: accessToken.substring(0, 8) + '...',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     setIsLoading(true);
     try {
       const stravaAPI = new StravaAPI(accessToken);
       const realActivities = await stravaAPI.getActivities(1, 30);
-      
+
       console.log('loadRealData: Successfully loaded real Strava data', {
         activitiesCount: realActivities.length,
         firstActivityDate: realActivities[0]?.start_date,
-        lastActivityDate: realActivities[realActivities.length - 1]?.start_date
+        lastActivityDate: realActivities[realActivities.length - 1]?.start_date,
       });
-      
+
       // Set initial activities data immediately so the UI shows something
       setActivities(realActivities);
       setIsRealData(true);
       toast.success(`Loaded ${realActivities.length} activities from Strava!`);
-      
+
       // Now preload detailed data for all activities to get private notes
       console.log('loadRealData: Starting to preload private notes for all activities');
-      
+
       const detailedActivities = await Promise.all(
         realActivities.map(async (activity) => {
           try {
@@ -435,44 +446,43 @@ export function Dashboard({ onLogout, accessToken }) {
             if (cachedActivity) {
               console.log('loadRealData: Using cached detailed data for activity', {
                 activityId: activity.id,
-                hasPrivateNote: !!cachedActivity.private_note
+                hasPrivateNote: !!cachedActivity.private_note,
               });
               return cachedActivity;
             }
-            
+
             // Fetch detailed activity data including private notes
             const detailedActivity = await stravaAPI.getActivity(activity.id);
-            
+
             // Cache the detailed data
             activityCache.setCachedActivity(activity.id, detailedActivity);
-            
+
             console.log('loadRealData: Loaded detailed data for activity', {
               activityId: activity.id,
               hasPrivateNote: !!detailedActivity.private_note,
-              privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
+              privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0,
             });
-            
+
             return detailedActivity;
           } catch (error) {
             console.warn('loadRealData: Failed to load detailed data for activity, using summary', {
               activityId: activity.id,
-              error: error.message
+              error: error.message,
             });
             // Return summary data if detailed fetch fails
             return activity;
           }
-        })
+        }),
       );
-      
+
       console.log('loadRealData: Successfully preloaded private notes', {
         totalActivities: detailedActivities.length,
-        activitiesWithNotes: detailedActivities.filter(a => a.private_note).length
+        activitiesWithNotes: detailedActivities.filter((a) => a.private_note).length,
       });
-      
+
       // Update activities with detailed data including private notes
       setActivities(detailedActivities);
       setIsLoading(false);
-      
     } catch (error) {
       console.error('loadRealData: Failed to load real activities', {
         error: error.message,
@@ -480,27 +490,27 @@ export function Dashboard({ onLogout, accessToken }) {
         hasToken: !!accessToken,
         tokenPrefix: accessToken ? accessToken.substring(0, 8) + '...' : 'none',
         timestamp: new Date().toISOString(),
-        isAuthError: error.message.includes('Unauthorized') || error.message.includes('401')
+        isAuthError: error.message.includes('Unauthorized') || error.message.includes('401'),
       });
-      
+
       setIsLoading(false);
-      
+
       // Check if it's an auth error
       if (error.message.includes('Unauthorized') || error.message.includes('401')) {
         console.warn('loadRealData: Authentication error detected, logging user out', {
           error: error.message,
-          willLogout: true
+          willLogout: true,
         });
         toast.error('Your Strava session has expired. Please sign in again.');
         onLogout(); // This will clear the invalid token
         return;
       }
-      
+
       console.warn('loadRealData: Non-auth error, falling back to demo data', {
         error: error.message,
-        fallbackAction: 'loading demo data'
+        fallbackAction: 'loading demo data',
       });
-      
+
       toast.error('Failed to load Strava data, showing demo instead');
       // Fallback to demo data if API fails
       loadDemoData();
@@ -517,48 +527,48 @@ export function Dashboard({ onLogout, accessToken }) {
 
     setSelectedActivity(activity);
     setIsLoadingDetails(true);
-    
+
     try {
       // Check cache first
       const cachedActivity = activityCache.getCachedActivity(activity.id);
-      
+
       if (cachedActivity) {
         console.log('fetchActivityDetails: Using cached activity data', {
           activityId: activity.id,
           hasPrivateNote: !!cachedActivity.private_note,
-          privateNoteLength: cachedActivity.private_note ? cachedActivity.private_note.length : 0
+          privateNoteLength: cachedActivity.private_note ? cachedActivity.private_note.length : 0,
         });
-        
+
         setSelectedActivityDetails(cachedActivity);
         setIsLoadingDetails(false);
         return;
       }
-      
+
       // Cache miss - fetch from API
       console.log('fetchActivityDetails: Cache miss, fetching from API', {
-        activityId: activity.id
+        activityId: activity.id,
       });
-      
+
       const stravaAPI = new StravaAPI(accessToken);
       const detailedActivity = await stravaAPI.getActivity(activity.id);
-      
+
       console.log('fetchActivityDetails: Successfully loaded detailed activity data from API', {
         activityId: activity.id,
         hasPrivateNote: !!detailedActivity.private_note,
-        privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0
+        privateNoteLength: detailedActivity.private_note ? detailedActivity.private_note.length : 0,
       });
-      
+
       // Cache the result
       activityCache.setCachedActivity(activity.id, detailedActivity);
-      
+
       setSelectedActivityDetails(detailedActivity);
     } catch (error) {
       console.error('fetchActivityDetails: Failed to load detailed activity', {
         activityId: activity.id,
         error: error.message,
-        errorType: error.constructor.name
+        errorType: error.constructor.name,
       });
-      
+
       // Fall back to summary data if detailed fetch fails
       setSelectedActivityDetails(activity);
       toast.error('Could not load activity details, showing summary data');
@@ -585,9 +595,12 @@ export function Dashboard({ onLogout, accessToken }) {
 
   // Periodic cache cleanup every 5 minutes
   useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      activityCache.cleanupExpiredEntries();
-    }, 5 * 60 * 1000); // 5 minutes
+    const cleanupInterval = setInterval(
+      () => {
+        activityCache.cleanupExpiredEntries();
+      },
+      5 * 60 * 1000,
+    ); // 5 minutes
 
     // Initial cleanup on mount
     activityCache.cleanupExpiredEntries();
@@ -598,7 +611,7 @@ export function Dashboard({ onLogout, accessToken }) {
   const refreshData = () => {
     // Clear activity details cache when refreshing data
     activityCache.clearCache();
-    
+
     if (accessToken) {
       loadRealData();
     } else {
@@ -617,8 +630,8 @@ export function Dashboard({ onLogout, accessToken }) {
 
   const getActivityTypeStats = () => {
     const typeStats = {};
-    
-    filteredActivities.forEach(activity => {
+
+    filteredActivities.forEach((activity) => {
       const type = activity.type;
       if (!typeStats[type]) {
         typeStats[type] = { count: 0, distance: 0, time: 0 };
@@ -668,7 +681,7 @@ export function Dashboard({ onLogout, accessToken }) {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
-                      day: 'numeric'
+                      day: 'numeric',
                     })}
                   </p>
                 </div>
@@ -843,7 +856,7 @@ export function Dashboard({ onLogout, accessToken }) {
               <TabsTrigger value="activities">Recent Activities</TabsTrigger>
               <TabsTrigger value="stats">Statistics</TabsTrigger>
             </TabsList>
-            
+
             {/* View mode toggle for activities tab only */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">View:</span>
@@ -887,18 +900,14 @@ export function Dashboard({ onLogout, accessToken }) {
                     </div>
                   </div>
                 ) : (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <Skeleton key={i} className="h-32 w-full" />
-                  ))
+                  Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)
                 )}
               </div>
             ) : (
               <>
                 {filteredActivities.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground">
-                      No activities match your current filters.
-                    </p>
+                    <p className="text-muted-foreground">No activities match your current filters.</p>
                   </div>
                 ) : viewMode === 'table' ? (
                   <ActivityTable
@@ -934,13 +943,9 @@ export function Dashboard({ onLogout, accessToken }) {
                       <div key={type} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">{type}</Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {stats.count} activities
-                          </span>
+                          <span className="text-sm text-muted-foreground">{stats.count} activities</span>
                         </div>
-                        <div className="text-sm font-medium">
-                          {formatDistance(stats.distance, units)}
-                        </div>
+                        <div className="text-sm font-medium">{formatDistance(stats.distance, units)}</div>
                       </div>
                     ))}
                   </div>

@@ -1,21 +1,20 @@
-import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
 import { format } from 'date-fns';
+import { X } from 'lucide-react';
+import { useState } from 'react';
 
-export function ActivityFilters({ 
-  filters, 
-  onFiltersChange, 
+export function ActivityFilters({
+  filters,
+  onFiltersChange,
   onDateRangeChange,
   dateRange,
-  availableActivityTypes = []
+  availableActivityTypes = [],
 }) {
-  
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
     onFiltersChange(newFilters);
@@ -27,7 +26,7 @@ export function ActivityFilters({
       minDistance: '',
       maxDistance: '',
       titleKeywords: '',
-      notesKeywords: ''
+      notesKeywords: '',
     };
     onFiltersChange(clearedFilters);
   };
@@ -36,8 +35,8 @@ export function ActivityFilters({
     onDateRangeChange({ from: null, to: null });
   };
 
-  const activeFilterCount = Object.entries(filters).filter(([key, value]) => 
-    value && value.toString().trim() !== '' && !(key === 'activityType' && value === 'all')
+  const activeFilterCount = Object.entries(filters).filter(
+    ([key, value]) => value && value.toString().trim() !== '' && !(key === 'activityType' && value === 'all'),
   ).length;
   const hasDateRange = dateRange && (dateRange.from || dateRange.to);
 
@@ -53,9 +52,9 @@ export function ActivityFilters({
               </Badge>
             )}
             {(activeFilterCount > 0 || hasDateRange) && (
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   clearFilters();
                   clearDateRange();
@@ -73,11 +72,7 @@ export function ActivityFilters({
         <div className="space-y-2">
           <label className="text-sm font-medium">Date Range</label>
           <div className="flex items-center gap-2">
-            <DateRangePicker
-              value={dateRange}
-              onChange={onDateRangeChange}
-              placeholder="Pick date range"
-            />
+            <DateRangePicker value={dateRange} onChange={onDateRangeChange} placeholder="Pick date range" />
             {hasDateRange && (
               <Button variant="outline" size="sm" onClick={clearDateRange}>
                 <X className="h-3 w-3" />
@@ -90,8 +85,8 @@ export function ActivityFilters({
           {/* Activity Type Filter */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Activity Type</label>
-            <Select 
-              value={filters.activityType || 'all'} 
+            <Select
+              value={filters.activityType || 'all'}
               onValueChange={(value) => handleFilterChange('activityType', value)}
             >
               <SelectTrigger>
@@ -100,7 +95,9 @@ export function ActivityFilters({
               <SelectContent>
                 <SelectItem value="all">All types</SelectItem>
                 {availableActivityTypes.map((type) => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -225,14 +222,9 @@ export function ActivityFilters({
               )}
               {hasDateRange && (
                 <Badge variant="secondary" className="text-xs">
-                  {dateRange.from && format(dateRange.from, "MMM dd")}
-                  {dateRange.to && ` - ${format(dateRange.to, "MMM dd")}`}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-1 h-auto p-0 text-xs"
-                    onClick={clearDateRange}
-                  >
+                  {dateRange.from && format(dateRange.from, 'MMM dd')}
+                  {dateRange.to && ` - ${format(dateRange.to, 'MMM dd')}`}
+                  <Button variant="ghost" size="sm" className="ml-1 h-auto p-0 text-xs" onClick={clearDateRange}>
                     <X className="h-3 w-3" />
                   </Button>
                 </Badge>

@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, TrendingUp, Users, Zap, Loader2 } from 'lucide-react';
 import { StravaAPI } from '@/lib/strava-api';
+import { Activity, Loader2, TrendingUp, Users, Zap } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 export function AuthLanding({ onAuthSuccess }) {
@@ -10,13 +10,13 @@ export function AuthLanding({ onAuthSuccess }) {
 
   const handleStravaAuth = async () => {
     setIsCheckingConnection(true);
-    
+
     try {
       const stravaAPI = new StravaAPI();
-      
+
       // Test backend connection first
       await stravaAPI.testBackendConnection();
-      
+
       // If connection is successful, redirect to Strava
       window.location.href = stravaAPI.getAuthUrl();
     } catch (error) {
@@ -37,12 +37,11 @@ export function AuthLanding({ onAuthSuccess }) {
         <div className="text-center mb-12">
           <div className="flex items-center justify-center mb-6">
             <Activity className="h-16 w-16 text-primary mr-4" />
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-              Strava Connect
-            </h1>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Strava Connect</h1>
           </div>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Transform your athletic data into powerful insights. Connect with Strava to visualize your performance and track your progress.
+            Transform your athletic data into powerful insights. Connect with Strava to visualize your performance and
+            track your progress.
           </p>
         </div>
 
@@ -85,7 +84,7 @@ export function AuthLanding({ onAuthSuccess }) {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-          <Button 
+          <Button
             onClick={handleStravaAuth}
             className="bg-[#FC4C02] hover:bg-[#E8440A] text-white px-8 py-3 text-lg font-semibold"
             size="lg"
@@ -103,9 +102,9 @@ export function AuthLanding({ onAuthSuccess }) {
               </>
             )}
           </Button>
-          
-          <Button 
-            variant="outline" 
+
+          <Button
+            variant="outline"
             onClick={handleDemoMode}
             size="lg"
             className="px-8 py-3 text-lg"

@@ -1,8 +1,8 @@
-import { formatDistance, formatDuration, formatPace, formatElevation } from '@/lib/strava-api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, MapPin, TrendingUp } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatDistance, formatDuration, formatElevation, formatPace } from '@/lib/strava-api';
 import { format } from 'date-fns';
+import { Calendar, Clock, MapPin, TrendingUp } from 'lucide-react';
 
 export function ActivityCard({ activity, onClick, units = 'metric' }) {
   const getActivityIcon = (type) => {
@@ -39,7 +39,7 @@ export function ActivityCard({ activity, onClick, units = 'metric' }) {
   };
 
   return (
-    <Card 
+    <Card
       className="hover:shadow-lg transition-all duration-200 cursor-pointer hover:scale-[1.02] border-2 hover:border-primary/20"
       onClick={onClick}
     >
@@ -48,9 +48,7 @@ export function ActivityCard({ activity, onClick, units = 'metric' }) {
           <div className="flex items-center gap-3">
             <span className="text-2xl">{getActivityIcon(activity.type)}</span>
             <div>
-              <CardTitle className="text-lg font-semibold line-clamp-1">
-                {activity.name}
-              </CardTitle>
+              <CardTitle className="text-lg font-semibold line-clamp-1">{activity.name}</CardTitle>
               <div className="flex items-center gap-2 mt-1">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">
@@ -59,9 +57,7 @@ export function ActivityCard({ activity, onClick, units = 'metric' }) {
               </div>
             </div>
           </div>
-          <Badge className={getActivityTypeColor(activity.type)}>
-            {activity.sport_type || activity.type}
-          </Badge>
+          <Badge className={getActivityTypeColor(activity.type)}>{activity.sport_type || activity.type}</Badge>
         </div>
       </CardHeader>
 
@@ -72,9 +68,7 @@ export function ActivityCard({ activity, onClick, units = 'metric' }) {
               <MapPin className="h-4 w-4" />
               <span className="text-sm">Distance</span>
             </div>
-            <span className="text-lg font-bold text-primary">
-              {formatDistance(activity.distance, units)}
-            </span>
+            <span className="text-lg font-bold text-primary">{formatDistance(activity.distance, units)}</span>
           </div>
 
           <div className="flex flex-col">
@@ -82,9 +76,7 @@ export function ActivityCard({ activity, onClick, units = 'metric' }) {
               <Clock className="h-4 w-4" />
               <span className="text-sm">Time</span>
             </div>
-            <span className="text-lg font-bold">
-              {formatDuration(activity.moving_time)}
-            </span>
+            <span className="text-lg font-bold">{formatDuration(activity.moving_time)}</span>
           </div>
 
           <div className="flex flex-col">
@@ -115,13 +107,11 @@ export function ActivityCard({ activity, onClick, units = 'metric' }) {
               <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Private Notes</span>
             </div>
             <p className="text-xs text-blue-900 dark:text-blue-100 line-clamp-2">
-              {activity.private_note ? 
-                (activity.private_note.length > 80 ? 
-                  `${activity.private_note.substring(0, 80)}...` : 
-                  activity.private_note
-                ) : 
-                'N/A'
-              }
+              {activity.private_note
+                ? activity.private_note.length > 80
+                  ? `${activity.private_note.substring(0, 80)}...`
+                  : activity.private_note
+                : 'N/A'}
             </p>
           </div>
         </div>

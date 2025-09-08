@@ -1,6 +1,6 @@
-import { formatDistance, formatDuration, formatPace, formatElevation } from '@/lib/strava-api';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { formatDistance, formatDuration, formatElevation, formatPace } from '@/lib/strava-api';
 import { format } from 'date-fns';
 
 export function ActivityTable({ activities, onClick, units = 'metric' }) {
@@ -68,7 +68,7 @@ export function ActivityTable({ activities, onClick, units = 'metric' }) {
         </TableHeader>
         <TableBody>
           {activities.map((activity) => (
-            <TableRow 
+            <TableRow
               key={activity.id}
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => onClick && onClick(activity)}
@@ -79,23 +79,16 @@ export function ActivityTable({ activities, onClick, units = 'metric' }) {
               <TableCell>
                 <div className="space-y-1">
                   <div className="font-medium text-sm leading-tight">{activity.name}</div>
-                  <Badge 
-                    className={`text-xs ${getActivityTypeColor(activity.type)}`}
-                    variant="outline"
-                  >
+                  <Badge className={`text-xs ${getActivityTypeColor(activity.type)}`} variant="outline">
                     {activity.sport_type || activity.type}
                   </Badge>
                 </div>
               </TableCell>
-              <TableCell className="text-sm">
-                {format(new Date(activity.start_date), 'MMM dd, yyyy')}
-              </TableCell>
+              <TableCell className="text-sm">{format(new Date(activity.start_date), 'MMM dd, yyyy')}</TableCell>
               <TableCell className="text-sm font-medium text-primary">
                 {formatDistance(activity.distance, units)}
               </TableCell>
-              <TableCell className="text-sm font-medium">
-                {formatDuration(activity.moving_time)}
-              </TableCell>
+              <TableCell className="text-sm font-medium">{formatDuration(activity.moving_time)}</TableCell>
               <TableCell className="text-sm font-medium">
                 {formatPace(activity.distance, activity.moving_time, units)}
               </TableCell>

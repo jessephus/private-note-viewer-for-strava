@@ -3,8 +3,8 @@
  * Implements smart caching strategy to minimize API usage while ensuring data completeness
  */
 
-import { WeeklyMileageDatabase } from './weekly-mileage-database.js';
 import { StravaAPI } from './strava-api.js';
+import { WeeklyMileageDatabase } from './weekly-mileage-database.js';
 
 class WeeklyMileageCalculator {
   constructor(accessToken, smartCache) {
@@ -18,7 +18,7 @@ class WeeklyMileageCalculator {
       apiCallsMade: 0,
       cacheHits: 0,
       rateLimitReached: false,
-      lastError: null
+      lastError: null,
     };
   }
 
@@ -37,7 +37,7 @@ class WeeklyMileageCalculator {
       apiCallsMade: 0,
       cacheHits: 0,
       rateLimitReached: false,
-      lastError: null
+      lastError: null,
     };
 
     console.log('WeeklyMileageCalculator: Starting weekly mileage calculation');
@@ -46,19 +46,19 @@ class WeeklyMileageCalculator {
       // Start with the most recent complete week (last Monday to Sunday)
       const today = new Date();
       const currentWeekStart = this.weeklyDatabase.getWeekStart(today);
-      
+
       // Go back to the previous complete week
       const lastCompleteWeekStart = new Date(currentWeekStart);
       lastCompleteWeekStart.setDate(lastCompleteWeekStart.getDate() - 7);
-      
+
       console.log('WeeklyMileageCalculator: Starting from week', {
         weekStart: lastCompleteWeekStart.toISOString(),
-        weekId: this.weeklyDatabase.getWeekId(lastCompleteWeekStart)
+        weekId: this.weeklyDatabase.getWeekId(lastCompleteWeekStart),
       });
 
       let currentWeek = lastCompleteWeekStart;
       let weeksBack = 0;
-      const maxWeeksBack = 52*3; // Don't go back more than 3 years
+      const maxWeeksBack = 52 * 3; // Don't go back more than 3 years
 
       while (weeksBack < maxWeeksBack && !this.calculationStats.rateLimitReached) {
         const weekId = this.weeklyDatabase.getWeekId(currentWeek);
@@ -67,7 +67,7 @@ class WeeklyMileageCalculator {
 
         console.log(`WeeklyMileageCalculator: Processing week ${weekId}`, {
           weekStart: weekStart.toISOString(),
-          weekEnd: weekEnd.toISOString()
+          weekEnd: weekEnd.toISOString(),
         });
 
         try {
@@ -75,7 +75,7 @@ class WeeklyMileageCalculator {
           this.calculationStats.weeksProcessed++;
         } catch (error) {
           console.error(`WeeklyMileageCalculator: Error processing week ${weekId}`, error);
-          
+
           if (error.message.includes('429') || error.message.includes('rate limit')) {
             console.log('WeeklyMileageCalculator: Rate limit reached, stopping calculation');
             this.calculationStats.rateLimitReached = true;
@@ -92,13 +92,12 @@ class WeeklyMileageCalculator {
 
         // Small delay to be gentle on the API
         if (this.calculationStats.apiCallsMade > 0) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
 
       console.log('WeeklyMileageCalculator: Calculation complete', this.calculationStats);
       return this.calculationStats;
-
     } catch (error) {
       console.error('WeeklyMileageCalculator: Fatal error during calculation', error);
       this.calculationStats.lastError = error.message;
@@ -113,7 +112,7 @@ class WeeklyMileageCalculator {
    */
   async processWeek(weekStart, weekEnd) {
     const weekId = this.weeklyDatabase.getWeekId(weekStart);
-    
+
     // Check if we already have complete data for this week
     const existingData = await this.weeklyDatabase.getWeeklyMileage(weekId);
     if (existingData && existingData.isComplete) {
@@ -124,15 +123,13 @@ class WeeklyMileageCalculator {
 
     // Get cached activities for this week
     const cachedActivities = await this.getCachedActivitiesForWeek(weekStart, weekEnd);
-    const cachedRuns = cachedActivities.filter(activity => 
-      activity.type === 'Run' || activity.sport_type === 'Run'
-    );
+    const cachedRuns = cachedActivities.filter((activity) => activity.type === 'Run' || activity.sport_type === 'Run');
 
     console.log(`WeeklyMileageCalculator: Found ${cachedRuns.length} cached runs for week ${weekId}`);
 
     // Check if we have complete coverage from cache
     const hasCompleteCoverage = await this.hasCompleteWeekCoverage(cachedRuns, weekStart, weekEnd);
-    
+
     let weeklyData;
     if (hasCompleteCoverage) {
       // Calculate from cached data only
@@ -149,11 +146,11 @@ class WeeklyMileageCalculator {
 
     // Save to database
     await this.weeklyDatabase.storeWeeklyMileage(weeklyData);
-    
+
     console.log(`WeeklyMileageCalculator: Saved week ${weekId}`, {
       distance: weeklyData.totalDistance,
       runs: weeklyData.runCount,
-      isComplete: weeklyData.isComplete
+      isComplete: weeklyData.isComplete,
     });
 
     return weeklyData;
@@ -166,8 +163,8 @@ class WeeklyMileageCalculator {
     try {
       await this.smartCache.database.initPromise;
       const allCached = await this.smartCache.database.getAllActivities();
-      
-      return allCached.filter(activity => {
+
+      return allCached.filter((activity) => {
         const activityDate = new Date(activity.start_date);
         return activityDate >= weekStart && activityDate <= weekEnd;
       });
@@ -184,7 +181,7 @@ class WeeklyMileageCalculator {
     // For simplicity, we'll consider cache complete if:
     // 1. We have some activities in the cache for this time period
     // 2. The cache was last updated recently (within the last few days for recent weeks)
-    
+
     if (cachedRuns.length === 0) {
       return false;
     }
@@ -192,7 +189,7 @@ class WeeklyMileageCalculator {
     // For weeks that ended more than a week ago, we can be more confident
     // that our cache is complete if we have any data
     const weekAge = (new Date() - weekEnd) / (1000 * 60 * 60 * 24); // Days
-    
+
     if (weekAge > 7) {
       // For older weeks, if we have cached data, it's likely complete
       return true;
@@ -200,9 +197,7 @@ class WeeklyMileageCalculator {
 
     // For recent weeks, we need to be more careful
     // Check if we have activities from multiple days in the week
-    const uniqueDays = new Set(
-      cachedRuns.map(run => new Date(run.start_date).toDateString())
-    );
+    const uniqueDays = new Set(cachedRuns.map((run) => new Date(run.start_date).toDateString()));
 
     // If we have activities from at least 2 different days, assume coverage is reasonable
     return uniqueDays.size >= 2;
@@ -217,19 +212,17 @@ class WeeklyMileageCalculator {
       const apiActivities = await this.stravaAPI.getActivities({
         after: Math.floor(weekStart.getTime() / 1000),
         before: Math.floor(weekEnd.getTime() / 1000),
-        per_page: 200
+        per_page: 200,
       });
 
       console.log(`WeeklyMileageCalculator: Fetched ${apiActivities.length} activities from API`);
 
       // Filter for runs only
-      const apiRuns = apiActivities.filter(activity => 
-        activity.type === 'Run' || activity.sport_type === 'Run'
-      );
+      const apiRuns = apiActivities.filter((activity) => activity.type === 'Run' || activity.sport_type === 'Run');
 
       // Combine with cached data, avoiding duplicates
-      const cachedIds = new Set(cachedRuns.map(run => run.id));
-      const newRuns = apiRuns.filter(run => !cachedIds.has(run.id));
+      const cachedIds = new Set(cachedRuns.map((run) => run.id));
+      const newRuns = apiRuns.filter((run) => !cachedIds.has(run.id));
 
       console.log(`WeeklyMileageCalculator: Found ${newRuns.length} new runs from API`);
 
@@ -237,23 +230,22 @@ class WeeklyMileageCalculator {
       if (newRuns.length > 0) {
         // Use smart cache to get detailed data efficiently
         const detailedNewRuns = await this.smartCache.loadActivitiesWithPrivateNotes(newRuns);
-        
+
         // The smart cache automatically saves to database, so we don't need to do that manually
         console.log(`WeeklyMileageCalculator: Processed ${detailedNewRuns.length} detailed runs through smart cache`);
-        
+
         // Combine all runs
         return [...cachedRuns, ...detailedNewRuns];
       }
 
       return cachedRuns;
-
     } catch (error) {
       console.error('WeeklyMileageCalculator: Error fetching from API', error);
-      
+
       if (error.message.includes('429') || error.message.includes('rate limit')) {
         throw error; // Re-throw rate limit errors to stop calculation
       }
-      
+
       // For other errors, use cached data if available
       console.log('WeeklyMileageCalculator: Using cached data due to API error');
       return cachedRuns;
@@ -279,14 +271,14 @@ class WeeklyMileageCalculator {
       totalElevation,
       runCount: runs.length,
       isComplete,
-      activities: runs.map(run => ({
+      activities: runs.map((run) => ({
         id: run.id,
         name: run.name,
         distance: run.distance,
         moving_time: run.moving_time,
         start_date: run.start_date,
-        type: run.type
-      }))
+        type: run.type,
+      })),
     };
   }
 

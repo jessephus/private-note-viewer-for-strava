@@ -34,17 +34,17 @@ class ActivityDatabase {
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        
+
         // Create activities store
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-          
+
           // Create indexes for efficient querying
           store.createIndex('start_date', 'start_date', { unique: false });
           store.createIndex('type', 'type', { unique: false });
           store.createIndex('has_private_note', 'has_private_note', { unique: false });
           store.createIndex('last_updated', 'last_updated', { unique: false });
-          
+
           console.log('ActivityDatabase: Activities store created with indexes');
         }
 
@@ -72,13 +72,13 @@ class ActivityDatabase {
    */
   async storeActivity(activity) {
     await this.ensureReady();
-    
+
     const enhancedActivity = {
       ...activity,
       has_private_note: !!activity.private_note,
       private_note_length: activity.private_note ? activity.private_note.length : 0,
       last_updated: new Date().toISOString(),
-      cached_at: Date.now()
+      cached_at: Date.now(),
     };
 
     return new Promise((resolve, reject) => {
@@ -90,7 +90,7 @@ class ActivityDatabase {
         console.log('ActivityDatabase: Stored activity', {
           activityId: activity.id,
           hasPrivateNote: !!activity.private_note,
-          privateNoteLength: activity.private_note ? activity.private_note.length : 0
+          privateNoteLength: activity.private_note ? activity.private_note.length : 0,
         });
         resolve(activity);
       };
@@ -98,7 +98,7 @@ class ActivityDatabase {
       request.onerror = () => {
         console.error('ActivityDatabase: Failed to store activity', {
           activityId: activity.id,
-          error: request.error
+          error: request.error,
         });
         reject(request.error);
       };
@@ -111,17 +111,17 @@ class ActivityDatabase {
    */
   async storeActivities(activities) {
     await this.ensureReady();
-    
+
     const transaction = this.db.transaction([STORE_NAME], 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    
-    const promises = activities.map(activity => {
+
+    const promises = activities.map((activity) => {
       const enhancedActivity = {
         ...activity,
         has_private_note: !!activity.private_note,
         private_note_length: activity.private_note ? activity.private_note.length : 0,
         last_updated: new Date().toISOString(),
-        cached_at: Date.now()
+        cached_at: Date.now(),
       };
 
       return new Promise((resolve, reject) => {
@@ -135,7 +135,7 @@ class ActivityDatabase {
       const results = await Promise.all(promises);
       console.log('ActivityDatabase: Bulk stored activities', {
         count: results.length,
-        withPrivateNotes: results.filter(a => a.has_private_note).length
+        withPrivateNotes: results.filter((a) => a.has_private_note).length,
       });
       return results;
     } catch (error) {
@@ -151,7 +151,7 @@ class ActivityDatabase {
    */
   async getActivity(activityId) {
     await this.ensureReady();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
@@ -163,7 +163,7 @@ class ActivityDatabase {
           console.log('ActivityDatabase: Retrieved activity from cache', {
             activityId,
             hasPrivateNote: activity.has_private_note,
-            cacheAge: Math.round((Date.now() - activity.cached_at) / 1000 / 60) + ' minutes'
+            cacheAge: Math.round((Date.now() - activity.cached_at) / 1000 / 60) + ' minutes',
           });
         }
         resolve(activity || null);
@@ -172,7 +172,7 @@ class ActivityDatabase {
       request.onerror = () => {
         console.error('ActivityDatabase: Failed to retrieve activity', {
           activityId,
-          error: request.error
+          error: request.error,
         });
         reject(request.error);
       };
@@ -186,10 +186,10 @@ class ActivityDatabase {
    */
   async getActivities(activityIds) {
     await this.ensureReady();
-    
-    const promises = activityIds.map(id => this.getActivity(id));
+
+    const promises = activityIds.map((id) => this.getActivity(id));
     const results = await Promise.all(promises);
-    return results.filter(activity => activity !== null);
+    return results.filter((activity) => activity !== null);
   }
 
   /**
@@ -200,19 +200,14 @@ class ActivityDatabase {
    */
   async getActivitiesInDateRange(startDate, endDate) {
     await this.ensureReady();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const index = store.index('start_date');
-      
-      const range = IDBKeyRange.bound(
-        startDate.toISOString(),
-        endDate.toISOString(),
-        false,
-        false
-      );
-      
+
+      const range = IDBKeyRange.bound(startDate.toISOString(), endDate.toISOString(), false, false);
+
       const request = index.getAll(range);
 
       request.onsuccess = () => {
@@ -221,14 +216,14 @@ class ActivityDatabase {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
           count: activities.length,
-          withPrivateNotes: activities.filter(a => a.has_private_note).length
+          withPrivateNotes: activities.filter((a) => a.has_private_note).length,
         });
         resolve(activities);
       };
 
       request.onerror = () => {
         console.error('ActivityDatabase: Failed to retrieve activities in date range', {
-          error: request.error
+          error: request.error,
         });
         reject(request.error);
       };
@@ -241,7 +236,7 @@ class ActivityDatabase {
    */
   async getAllActivities() {
     await this.ensureReady();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
@@ -251,7 +246,7 @@ class ActivityDatabase {
         const activities = request.result || [];
         console.log('ActivityDatabase: Retrieved all cached activities', {
           count: activities.length,
-          withPrivateNotes: activities.filter(a => a.has_private_note).length
+          withPrivateNotes: activities.filter((a) => a.has_private_note).length,
         });
         resolve(activities);
       };
@@ -270,19 +265,19 @@ class ActivityDatabase {
    */
   async getMissingActivityIds(activityIds) {
     await this.ensureReady();
-    
+
     const cachedActivities = await this.getActivities(activityIds);
-    const cachedIds = new Set(cachedActivities.map(a => String(a.id)));
-    
-    const missingIds = activityIds.filter(id => !cachedIds.has(String(id)));
-    
+    const cachedIds = new Set(cachedActivities.map((a) => String(a.id)));
+
+    const missingIds = activityIds.filter((id) => !cachedIds.has(String(id)));
+
     console.log('ActivityDatabase: Checked for missing activities', {
       requested: activityIds.length,
       cached: cachedActivities.length,
       missing: missingIds.length,
-      missingIds: missingIds.slice(0, 5) // Log first 5 for debugging
+      missingIds: missingIds.slice(0, 5), // Log first 5 for debugging
     });
-    
+
     return missingIds;
   }
 
@@ -293,14 +288,14 @@ class ActivityDatabase {
    */
   async getActivitiesNeedingRefresh(maxAgeHours = 24) {
     await this.ensureReady();
-    
-    const cutoffTime = Date.now() - (maxAgeHours * 60 * 60 * 1000);
-    
+
+    const cutoffTime = Date.now() - maxAgeHours * 60 * 60 * 1000;
+
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORE_NAME], 'readonly');
       const store = transaction.objectStore(STORE_NAME);
       const index = store.index('last_updated');
-      
+
       const request = index.openCursor();
       const staleActivities = [];
 
@@ -315,7 +310,7 @@ class ActivityDatabase {
         } else {
           console.log('ActivityDatabase: Found stale activities', {
             count: staleActivities.length,
-            maxAgeHours
+            maxAgeHours,
           });
           resolve(staleActivities);
         }
@@ -334,14 +329,14 @@ class ActivityDatabase {
    */
   async cleanupOldActivities(maxAgeDays = 90) {
     await this.ensureReady();
-    
-    const cutoffTime = Date.now() - (maxAgeDays * 24 * 60 * 60 * 1000);
-    
+
+    const cutoffTime = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
+
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
       const index = store.index('last_updated');
-      
+
       const request = index.openCursor();
       let deletedCount = 0;
 
@@ -357,7 +352,7 @@ class ActivityDatabase {
         } else {
           console.log('ActivityDatabase: Cleaned up old activities', {
             deletedCount,
-            maxAgeDays
+            maxAgeDays,
           });
           resolve(deletedCount);
         }
@@ -376,13 +371,11 @@ class ActivityDatabase {
    */
   async getStats() {
     await this.ensureReady();
-    
+
     const allActivities = await this.getAllActivities();
-    const withNotes = allActivities.filter(a => a.has_private_note);
-    const oldestCached = allActivities.length > 0 ? 
-      Math.min(...allActivities.map(a => a.cached_at)) : null;
-    const newestCached = allActivities.length > 0 ? 
-      Math.max(...allActivities.map(a => a.cached_at)) : null;
+    const withNotes = allActivities.filter((a) => a.has_private_note);
+    const oldestCached = allActivities.length > 0 ? Math.min(...allActivities.map((a) => a.cached_at)) : null;
+    const newestCached = allActivities.length > 0 ? Math.max(...allActivities.map((a) => a.cached_at)) : null;
 
     return {
       totalActivities: allActivities.length,
@@ -390,7 +383,7 @@ class ActivityDatabase {
       activitiesWithoutNotes: allActivities.length - withNotes.length,
       oldestCached: oldestCached ? new Date(oldestCached).toISOString() : null,
       newestCached: newestCached ? new Date(newestCached).toISOString() : null,
-      totalPrivateNoteChars: withNotes.reduce((sum, a) => sum + (a.private_note_length || 0), 0)
+      totalPrivateNoteChars: withNotes.reduce((sum, a) => sum + (a.private_note_length || 0), 0),
     };
   }
 
@@ -399,7 +392,7 @@ class ActivityDatabase {
    */
   async clearAll() {
     await this.ensureReady();
-    
+
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);

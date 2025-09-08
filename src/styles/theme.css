@@ -1,72 +1,72 @@
 @import "tailwindcss";
 
-@import '@radix-ui/colors/sage-dark.css' layer(base);
-@import '@radix-ui/colors/olive.css' layer(base);
-@import '@radix-ui/colors/olive-dark.css' layer(base);
-@import '@radix-ui/colors/sand.css' layer(base);
-@import '@radix-ui/colors/sand-dark.css' layer(base);
-@import '@radix-ui/colors/red.css' layer(base);
-@import '@radix-ui/colors/red-dark.css' layer(base);
-@import '@radix-ui/colors/ruby.css' layer(base);
-@import '@radix-ui/colors/ruby-dark.css' layer(base);
-@import '@radix-ui/colors/crimson.css' layer(base);
-@import '@radix-ui/colors/crimson-dark.css' layer(base);
-@import '@radix-ui/colors/pink.css' layer(base);
-@import '@radix-ui/colors/pink-dark.css' layer(base);
-@import '@radix-ui/colors/plum.css' layer(base);
-@import '@radix-ui/colors/plum-dark.css' layer(base);
-@import '@radix-ui/colors/purple.css' layer(base);
-@import '@radix-ui/colors/purple-dark.css' layer(base);
-@import '@radix-ui/colors/violet.css' layer(base);
-@import '@radix-ui/colors/violet-dark.css' layer(base);
-@import '@radix-ui/colors/iris.css' layer(base);
-@import '@radix-ui/colors/iris-dark.css' layer(base);
-@import '@radix-ui/colors/indigo.css' layer(base);
-@import '@radix-ui/colors/indigo-dark.css' layer(base);
-@import '@radix-ui/colors/blue.css' layer(base);
-@import '@radix-ui/colors/blue-dark.css' layer(base);
-@import '@radix-ui/colors/cyan.css' layer(base);
-@import '@radix-ui/colors/cyan-dark.css' layer(base);
-@import '@radix-ui/colors/teal.css' layer(base);
-@import '@radix-ui/colors/teal-dark.css' layer(base);
-@import '@radix-ui/colors/jade.css' layer(base);
-@import '@radix-ui/colors/jade-dark.css' layer(base);
-@import '@radix-ui/colors/green.css' layer(base);
-@import '@radix-ui/colors/green-dark.css' layer(base);
-@import '@radix-ui/colors/grass.css' layer(base);
-@import '@radix-ui/colors/grass-dark.css' layer(base);
-@import '@radix-ui/colors/bronze.css' layer(base);
-@import '@radix-ui/colors/bronze-dark.css' layer(base);
-@import '@radix-ui/colors/gold.css' layer(base);
-@import '@radix-ui/colors/gold-dark.css' layer(base);
-@import '@radix-ui/colors/brown.css' layer(base);
-@import '@radix-ui/colors/brown-dark.css' layer(base);
-@import '@radix-ui/colors/orange.css' layer(base);
-@import '@radix-ui/colors/orange-dark.css' layer(base);
-@import '@radix-ui/colors/amber.css' layer(base);
-@import '@radix-ui/colors/amber-dark.css' layer(base);
-@import '@radix-ui/colors/yellow.css' layer(base);
-@import '@radix-ui/colors/yellow-dark.css' layer(base);
-@import '@radix-ui/colors/lime.css' layer(base);
-@import '@radix-ui/colors/lime-dark.css' layer(base);
-@import '@radix-ui/colors/mint.css' layer(base);
-@import '@radix-ui/colors/mint-dark.css' layer(base);
-@import '@radix-ui/colors/sky.css' layer(base);
-@import '@radix-ui/colors/sky-dark.css' layer(base);
-@import '@radix-ui/colors/tomato.css' layer(base);
-@import '@radix-ui/colors/tomato-dark.css' layer(base);
-@import '@radix-ui/colors/gray.css' layer(base);
-@import '@radix-ui/colors/gray-dark.css' layer(base);
-@import '@radix-ui/colors/mauve.css' layer(base);
-@import '@radix-ui/colors/mauve-dark.css' layer(base);
-@import '@radix-ui/colors/slate.css' layer(base);
-@import '@radix-ui/colors/slate-dark.css' layer(base);
-@import '@radix-ui/colors/slate-alpha.css' layer(base);
-@import '@radix-ui/colors/slate-dark-alpha.css' layer(base);
+@import "@radix-ui/colors/sage-dark.css" layer(base);
+@import "@radix-ui/colors/olive.css" layer(base);
+@import "@radix-ui/colors/olive-dark.css" layer(base);
+@import "@radix-ui/colors/sand.css" layer(base);
+@import "@radix-ui/colors/sand-dark.css" layer(base);
+@import "@radix-ui/colors/red.css" layer(base);
+@import "@radix-ui/colors/red-dark.css" layer(base);
+@import "@radix-ui/colors/ruby.css" layer(base);
+@import "@radix-ui/colors/ruby-dark.css" layer(base);
+@import "@radix-ui/colors/crimson.css" layer(base);
+@import "@radix-ui/colors/crimson-dark.css" layer(base);
+@import "@radix-ui/colors/pink.css" layer(base);
+@import "@radix-ui/colors/pink-dark.css" layer(base);
+@import "@radix-ui/colors/plum.css" layer(base);
+@import "@radix-ui/colors/plum-dark.css" layer(base);
+@import "@radix-ui/colors/purple.css" layer(base);
+@import "@radix-ui/colors/purple-dark.css" layer(base);
+@import "@radix-ui/colors/violet.css" layer(base);
+@import "@radix-ui/colors/violet-dark.css" layer(base);
+@import "@radix-ui/colors/iris.css" layer(base);
+@import "@radix-ui/colors/iris-dark.css" layer(base);
+@import "@radix-ui/colors/indigo.css" layer(base);
+@import "@radix-ui/colors/indigo-dark.css" layer(base);
+@import "@radix-ui/colors/blue.css" layer(base);
+@import "@radix-ui/colors/blue-dark.css" layer(base);
+@import "@radix-ui/colors/cyan.css" layer(base);
+@import "@radix-ui/colors/cyan-dark.css" layer(base);
+@import "@radix-ui/colors/teal.css" layer(base);
+@import "@radix-ui/colors/teal-dark.css" layer(base);
+@import "@radix-ui/colors/jade.css" layer(base);
+@import "@radix-ui/colors/jade-dark.css" layer(base);
+@import "@radix-ui/colors/green.css" layer(base);
+@import "@radix-ui/colors/green-dark.css" layer(base);
+@import "@radix-ui/colors/grass.css" layer(base);
+@import "@radix-ui/colors/grass-dark.css" layer(base);
+@import "@radix-ui/colors/bronze.css" layer(base);
+@import "@radix-ui/colors/bronze-dark.css" layer(base);
+@import "@radix-ui/colors/gold.css" layer(base);
+@import "@radix-ui/colors/gold-dark.css" layer(base);
+@import "@radix-ui/colors/brown.css" layer(base);
+@import "@radix-ui/colors/brown-dark.css" layer(base);
+@import "@radix-ui/colors/orange.css" layer(base);
+@import "@radix-ui/colors/orange-dark.css" layer(base);
+@import "@radix-ui/colors/amber.css" layer(base);
+@import "@radix-ui/colors/amber-dark.css" layer(base);
+@import "@radix-ui/colors/yellow.css" layer(base);
+@import "@radix-ui/colors/yellow-dark.css" layer(base);
+@import "@radix-ui/colors/lime.css" layer(base);
+@import "@radix-ui/colors/lime-dark.css" layer(base);
+@import "@radix-ui/colors/mint.css" layer(base);
+@import "@radix-ui/colors/mint-dark.css" layer(base);
+@import "@radix-ui/colors/sky.css" layer(base);
+@import "@radix-ui/colors/sky-dark.css" layer(base);
+@import "@radix-ui/colors/tomato.css" layer(base);
+@import "@radix-ui/colors/tomato-dark.css" layer(base);
+@import "@radix-ui/colors/gray.css" layer(base);
+@import "@radix-ui/colors/gray-dark.css" layer(base);
+@import "@radix-ui/colors/mauve.css" layer(base);
+@import "@radix-ui/colors/mauve-dark.css" layer(base);
+@import "@radix-ui/colors/slate.css" layer(base);
+@import "@radix-ui/colors/slate-dark.css" layer(base);
+@import "@radix-ui/colors/slate-alpha.css" layer(base);
+@import "@radix-ui/colors/slate-dark-alpha.css" layer(base);
 
-@import 'tailwindcss/theme' layer(theme);
+@import "tailwindcss/theme" layer(theme);
 
-@import 'tailwindcss/preflight' layer(base);
+@import "tailwindcss/preflight" layer(base);
 
 /*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
@@ -121,15 +121,15 @@
     --sand-contrast: #fff;
 
     /**
-   * Spacing scale
-   *
-   * These variables define a spacing scale based on Tailwind's default.
-   * We've introduced a --size-scale variable as a multiplier.
-   * By adjusting this single value, we can proportionally
-   * scale all spacing throughout the entire application.
-   *
-   * https://tailwindcss.com/docs/customizing-spacing#default-spacing-scale
-   */
+     * Spacing scale
+     *
+     * These variables define a spacing scale based on Tailwind's default.
+     * We've introduced a --size-scale variable as a multiplier.
+     * By adjusting this single value, we can proportionally
+     * scale all spacing throughout the entire application.
+     *
+     * https://tailwindcss.com/docs/customizing-spacing#default-spacing-scale
+     */
     --size-scale: 1;
     --size-0: 0px;
     --size-px: 1px;
@@ -246,11 +246,10 @@
     --color-focus-ring: var(--color-accent-9);
 
     /* Fonts */
-    --font-sans-serif: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-sans-serif: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+      "Noto Color Emoji";
     --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-    --font-monospace: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-      "Liberation Mono", "Courier New", monospace;
+    --font-monospace: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     --font-family: var(--font-sans-serif);
   }
 

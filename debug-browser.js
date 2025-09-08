@@ -11,10 +11,10 @@ for (let i = 0; i < localStorage.length; i++) {
 
 // Test if we can reach the backend
 fetch('http://localhost:3001/api/health')
-  .then(response => response.json())
-  .then(data => {
+  .then((response) => response.json())
+  .then((data) => {
     console.log('Backend health check:', data);
   })
-  .catch(error => {
+  .catch((error) => {
     console.error('Backend connection failed:', error);
   });

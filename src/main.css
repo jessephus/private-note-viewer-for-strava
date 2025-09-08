@@ -1,7 +1,7 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@import './styles/theme.css';
-@import './index.css';
+@import "./styles/theme.css";
+@import "./index.css";
 @import "tw-animate-css";
 /*
   ---break---
@@ -19,7 +19,6 @@
   color utility to any element that depends on these defaults.
 */
 @layer base {
-
   *,
   ::after,
   ::before,

@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
-import { useLocalStorage } from '@/hooks/use-local-storage';
 import { AuthLanding } from '@/components/AuthLanding';
 import { MainLayout } from '@/components/MainLayout';
 import { PrivateNotesViewer } from '@/components/PrivateNotesViewer';
 import { WeeklyMileageTracker } from '@/components/WeeklyMileageTracker';
 import { Toaster } from '@/components/ui/sonner';
-import { toast } from 'sonner';
-import { StravaAPI } from '@/lib/strava-api';
+import { useLocalStorage } from '@/hooks/use-local-storage';
 import { SmartActivityCache } from '@/lib/smart-activity-cache';
+import { StravaAPI } from '@/lib/strava-api';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useLocalStorage('strava-authenticated', false);
@@ -19,7 +19,7 @@ function App() {
   const [apiStatusDetails, setApiStatusDetails] = useState(null);
   const [lastApiActivity, setLastApiActivity] = useState(null);
 
-    // Debug: Log initial state
+  // Debug: Log initial state
   console.log('App: Initial state', {
     isAuthenticated,
     hasAccessToken: !!accessToken,
@@ -27,14 +27,14 @@ function App() {
     localStorageToken: localStorage.getItem('strava-access-token'),
     localStorageAuth: localStorage.getItem('strava-authenticated'),
     currentModule,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   // Function to update API status from actual API calls
   const updateApiStatus = (success, error = null) => {
     const now = Date.now();
     setLastApiActivity(now);
-    
+
     if (success) {
       setApiStatus('available');
       setApiStatusDetails(null);
@@ -45,7 +45,7 @@ function App() {
           type: 'rate-limited',
           message: 'API rate limit exceeded',
           statusCode: error.status,
-          details: error.message
+          details: error.message,
         });
       } else {
         setApiStatus('error');
@@ -53,7 +53,7 @@ function App() {
           type: 'error',
           message: error.message || 'Unknown API error',
           statusCode: error.status || 'Unknown',
-          details: `${error.status ? `HTTP ${error.status}: ` : ''}${error.message || 'Unknown error occurred'}`
+          details: `${error.status ? `HTTP ${error.status}: ` : ''}${error.message || 'Unknown error occurred'}`,
         });
       }
     }
@@ -113,10 +113,10 @@ function App() {
     // Get the current token from localStorage, not from closure
     const currentToken = localStorage.getItem('strava-access-token');
     const parsedToken = currentToken ? JSON.parse(currentToken) : null;
-    
+
     if (!parsedToken) {
       console.log('validateStoredToken: No access token found, skipping validation');
-      
+
       // Test backend connectivity on startup for early warning
       try {
         const stravaAPI = new StravaAPI();
@@ -125,18 +125,18 @@ function App() {
       } catch (error) {
         console.warn('validateStoredToken: Backend connectivity check failed', {
           error: error.message,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
         // Don't show error on startup, just log it for debugging
         // Users will see the error when they try to authenticate
       }
-      
+
       setIsLoading(false);
       return;
     }
 
     console.log('validateStoredToken: Starting token validation with stored token');
-    
+
     try {
       // Try to make a simple API call to validate the token
       const stravaAPI = new StravaAPI(parsedToken);
@@ -144,7 +144,7 @@ function App() {
       // Token is valid, keep authentication state
       console.log('validateStoredToken: Token validation successful', {
         athleteId: athlete?.id,
-        username: athlete?.username
+        username: athlete?.username,
       });
       setIsLoading(false);
     } catch (error) {
@@ -153,9 +153,9 @@ function App() {
         errorType: error.constructor.name,
         hasToken: !!parsedToken,
         tokenPrefix: parsedToken ? parsedToken.substring(0, 8) + '...' : 'none',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       // Token is invalid, clear authentication state
       console.log('validateStoredToken: Clearing invalid authentication state');
       setIsAuthenticated(false);
@@ -169,27 +169,27 @@ function App() {
     console.log('handleTokenExchange: Starting OAuth token exchange', {
       codeLength: code ? code.length : 0,
       hasCode: !!code,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     try {
       const stravaAPI = new StravaAPI();
       const tokenData = await stravaAPI.exchangeCodeForToken(code);
-      
+
       console.log('handleTokenExchange: Token exchange successful', {
         hasAccessToken: !!tokenData.access_token,
         tokenType: tokenData.token_type,
         scopes: tokenData.scope,
         athleteId: tokenData.athlete?.id,
-        expiresAt: tokenData.expires_at ? new Date(tokenData.expires_at * 1000).toISOString() : 'unknown'
+        expiresAt: tokenData.expires_at ? new Date(tokenData.expires_at * 1000).toISOString() : 'unknown',
       });
-      
+
       // Store token and mark as authenticated
       setAccessToken(tokenData.access_token);
       setIsAuthenticated(true);
-      
+
       toast.success('Successfully connected to Strava!');
-      
+
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     } catch (error) {
@@ -199,7 +199,7 @@ function App() {
         hasCode: !!code,
         codeLength: code ? code.length : 0,
         timestamp: new Date().toISOString(),
-        stack: error.stack
+        stack: error.stack,
       });
       toast.error('Authentication failed: ' + error.message);
     } finally {
@@ -219,12 +219,12 @@ function App() {
     const checkApiStatus = async () => {
       const now = Date.now();
       const fifteenMinutes = 15 * 60 * 1000; // 15 minutes in milliseconds
-      
+
       // Only make a test call if it's been more than 15 minutes since last API activity
-      if (lastApiActivity && (now - lastApiActivity) < fifteenMinutes) {
+      if (lastApiActivity && now - lastApiActivity < fifteenMinutes) {
         console.log('API status check: Skipping test call, recent activity detected', {
           timeSinceLastActivity: Math.round((now - lastApiActivity) / 1000 / 60),
-          minutesUntilNextCheck: Math.round((fifteenMinutes - (now - lastApiActivity)) / 1000 / 60)
+          minutesUntilNextCheck: Math.round((fifteenMinutes - (now - lastApiActivity)) / 1000 / 60),
         });
         return;
       }
@@ -252,14 +252,14 @@ function App() {
     console.log('handleLogout: User logout initiated', {
       wasAuthenticated: isAuthenticated,
       hadToken: !!accessToken,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     setIsAuthenticated(false);
     setAccessToken(null);
     // Clear any stored data
     localStorage.clear();
-    
+
     console.log('handleLogout: Authentication state cleared');
     toast.success('Successfully logged out');
   };
@@ -267,23 +267,17 @@ function App() {
   const renderCurrentModule = () => {
     switch (currentModule) {
       case 'private-notes':
-        return <PrivateNotesViewer 
-          accessToken={accessToken} 
-          smartCache={smartCache} 
-          updateApiStatus={updateApiStatus}
-        />;
+        return (
+          <PrivateNotesViewer accessToken={accessToken} smartCache={smartCache} updateApiStatus={updateApiStatus} />
+        );
       case 'weekly-mileage':
-        return <WeeklyMileageTracker 
-          accessToken={accessToken} 
-          smartCache={smartCache}
-          updateApiStatus={updateApiStatus}
-        />;
+        return (
+          <WeeklyMileageTracker accessToken={accessToken} smartCache={smartCache} updateApiStatus={updateApiStatus} />
+        );
       default:
-        return <PrivateNotesViewer 
-          accessToken={accessToken} 
-          smartCache={smartCache}
-          updateApiStatus={updateApiStatus}
-        />;
+        return (
+          <PrivateNotesViewer accessToken={accessToken} smartCache={smartCache} updateApiStatus={updateApiStatus} />
+        );
     }
   };
 
@@ -298,8 +292,8 @@ function App() {
   return (
     <>
       {isAuthenticated ? (
-        <MainLayout 
-          onLogout={handleLogout} 
+        <MainLayout
+          onLogout={handleLogout}
           currentModule={currentModule}
           onModuleChange={setCurrentModule}
           apiStatus={apiStatus}
